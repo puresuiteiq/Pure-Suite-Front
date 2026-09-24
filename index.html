@@ -1,0 +1,90 @@
+<!doctype html>
+<!-- translate="no" and the notranslate meta below stop Chrome's built-in
+     Google Translate from rewriting the page. With the old static lang="en" on
+     an Arabic storefront, Chrome treated the menu as foreign text and
+     "translated" it on customers' phones: د.ع came out as dirham, إغلاق as
+     "ما", متوفر as "*", and product names were replaced outright. The app
+     ships its own English / Arabic / Kurdish, so machine translation is never
+     wanted anywhere in it. -->
+<html lang="ar" dir="rtl" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="google" content="notranslate" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RestoSaaS · Super Admin</title>
+    <!-- index.css's font stack names Inter and Cairo, but neither was ever
+         actually loaded — without this, the browser falls back to the OS's
+         system font, which for Arabic script usually has only one real bold
+         face, so font-bold and font-extrabold rendered identically no matter
+         what weight was requested. Cairo covers Arabic; Inter covers Latin. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cairo:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // Set the theme before first paint so there's no light/dark flash.
+      // Mirrors the logic in ThemeProvider (localStorage 'theme' → system pref).
+      (function () {
+        try {
+          var stored = localStorage.getItem('theme')
+          var dark =
+            stored === 'dark' ||
+            (!stored &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.setAttribute(
+            'data-theme',
+            dark ? 'dark' : 'light',
+          )
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light')
+        }
+      })()
+
+      // Set the language and direction before first paint too. App.jsx keeps
+      // them in sync once React is running, but until then the page carried
+      // whatever the static attributes said, which is what Chrome's translate
+      // prompt reads. Mirrors i18n/config.js's detector so the two agree and
+      // the layout never flips direction on boot: the saved choice
+      // (localStorage "i18nextLng"), then the browser's languages (exact code
+      // first, then its language part, so "ar-IQ" is Arabic and "ku" is
+      // Kurdish Badini), then English, which is i18next's fallback.
+      ;(function () {
+        var DIRECTIONS = { en: 'ltr', ar: 'rtl', 'ku-badini': 'rtl' }
+        var SUPPORTED = Object.keys(DIRECTIONS)
+        var candidates = []
+        try {
+          var saved = localStorage.getItem('i18nextLng')
+          if (saved) candidates.push(saved)
+        } catch (e) {
+          // Storage blocked (private mode): fall through to the browser's languages.
+        }
+        var browser = navigator.languages && navigator.languages.length
+          ? navigator.languages
+          : [navigator.language]
+        for (var i = 0; i < browser.length; i++) if (browser[i]) candidates.push(browser[i])
+
+        var lang = null
+        for (var j = 0; j < candidates.length && !lang; j++) {
+          var exact = String(candidates[j]).toLowerCase()
+          if (DIRECTIONS[exact]) lang = exact
+        }
+        for (var k = 0; k < candidates.length && !lang; k++) {
+          var part = String(candidates[k]).toLowerCase().split('-')[0]
+          for (var s = 0; s < SUPPORTED.length && !lang; s++) {
+            if (SUPPORTED[s].split('-')[0] === part) lang = SUPPORTED[s]
+          }
+        }
+        lang = lang || 'en'
+        document.documentElement.setAttribute('lang', lang)
+        document.documentElement.setAttribute('dir', DIRECTIONS[lang])
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
