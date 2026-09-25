@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +16,16 @@ import CartPanel from '../../components/public/CartPanel'
 import CartSummary from '../../components/public/CartSummary'
 import StorefrontNav from '../../components/public/StorefrontNav'
 import PoweredBy from '../../components/public/PoweredBy'
+import SplashScreen from '../../components/public/SplashScreen'
+import { RoyalCategoryNav, RoyalHeader, RoyalMenu } from '../../components/public/themes/RoyalTheme'
+import { ModernCategoryNav, ModernHeader, ModernMenu } from '../../components/public/themes/ModernTheme'
+import { KitCategoryNav, KitHeader, KitMenu } from '../../components/public/themes/ThemeKit'
+import {
+  KIT_LAYOUTS,
+  SCROLL_SPY_OFFSETS,
+  THEME_FONT_URLS,
+  normalizeStorefrontTheme,
+} from '../../config/storefrontThemes'
 import SocialLinks from '../../components/public/SocialLinks'
 import { VerticalContext } from '../../context/VerticalContext'
 import { modeForBusinessType } from '../../config/businessCategories'
@@ -31,11 +41,18 @@ import { buildWhatsAppUrl, formatOrderMessage, normalizeWhatsAppNumber } from '.
 import { translateApiError } from '../../utils/apiError'
 
 /**
- * Where a section's top must reach before the category bar calls it current.
- * Matches the sections' own `scroll-mt-24` (96px), so the pill flips exactly as
- * a heading settles under the sticky bar.
+ * The storefront designs besides classic, which is written out inline below.
+ * Each supplies its own header, category navigation and menu; everything else
+ * (search, carousel, cart, checkout, the product sheet) is shared. Designs in
+ * KIT_LAYOUTS are assembled from the theme kit and told which parts to use
+ * through the `layout` prop.
  */
-const SCROLL_SPY_OFFSET = 100
+const KIT = { Header: KitHeader, CategoryNav: KitCategoryNav, Menu: KitMenu }
+const THEMES = {
+  royal: { Header: RoyalHeader, CategoryNav: RoyalCategoryNav, Menu: RoyalMenu },
+  modern: { Header: ModernHeader, CategoryNav: ModernCategoryNav, Menu: ModernMenu },
+  ...Object.fromEntries(Object.keys(KIT_LAYOUTS).map((key) => [key, KIT])),
+}
 
 // Storefront accent when the merchant hasn't chosen their own colours — the
 // green the storefront has always shipped, so un-customised menus are unchanged.
@@ -56,13 +73,34 @@ const STOREFRONT_BACKGROUND_SHADOW_DARK = '#17171a'
 const STOREFRONT_BACKGROUND_LIGHT = '#f8fafc'
 const STOREFRONT_BACKGROUND_SHADOW_LIGHT = '#eef2f7'
 
+// The welcome screen shows once per tab session per store, so a reload — or
+// coming back from the WhatsApp hand-off — lands on the menu, not the intro
+// again. sessionStorage can be unavailable (private mode, blocked storage);
+// then it simply shows every time.
+const splashSeenKey = (merchantId) => `splash-seen:${merchantId}`
+function splashSeen(merchantId) {
+  try {
+    return window.sessionStorage.getItem(splashSeenKey(merchantId)) === '1'
+  } catch {
+    return false
+  }
+}
+function markSplashSeen(merchantId) {
+  try {
+    window.sessionStorage.setItem(splashSeenKey(merchantId), '1')
+  } catch {
+    // Storage blocked: nothing to remember it in.
+  }
+}
+
 export default function PublicMenu() {
   const { merchantId } = useParams()
   const { t } = useTranslation()
   const { theme } = useTheme()
   const reduceMotion = useReducedMotion()
-  const { profile, categories, banners, reviews, setReviews, platformBranding, suspended, loading, error } =
+  const { profile, categories, banners, reviews, setReviews, platformBranding, suspended, loading, loadingMore, hasMore, loadMore, error } =
     usePublicRestaurant(merchantId)
+  const menuLoaderRef = useRef(null)
   const [cartOpen, setCartOpen] = useState(false) // mobile drawer
   const [selectedItem, setSelectedItem] = useState(null)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
@@ -77,17 +115,49 @@ export default function PublicMenu() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [aboutOpen, setAboutOpen] = useState(false)
+  // The merchant's chosen design ('classic' until they pick one).
+  const themeKey = normalizeStorefrontTheme(profile?.storefrontTheme)
+  const Theme = THEMES[themeKey] ?? null
+  const kitLayout = KIT_LAYOUTS[themeKey] ?? null
+  // Keyed by store, so moving to another storefront shows that one's screen.
+  const [splashDismissed, setSplashDismissed] = useState(() => ({ [merchantId]: splashSeen(merchantId) }))
+  const splashDone = splashDismissed[merchantId] ?? splashSeen(merchantId)
+  const enterFromSplash = () => {
+    markSplashSeen(merchantId)
+    setSplashDismissed((prev) => ({ ...prev, [merchantId]: true }))
+  }
 
   const menuItems = useMemo(
     () => categories.flatMap((category) => category.items || []),
     [categories],
   )
 
+  useEffect(() => {
+    if (!menuLoaderRef.current || !hasMore || loadingMore) return undefined
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) loadMore()
+      },
+      { rootMargin: '900px 0px' },
+    )
+    observer.observe(menuLoaderRef.current)
+    return () => observer.disconnect()
+  }, [hasMore, loadMore, loadingMore])
+
   // The cart prices itself from the live menu, so it has to be built from it.
   const cart = useCart(merchantId, menuItems)
 
   const visibleCategories = useMemo(
-    () => categories.filter((category) => category.items.length > 0).map((category) => ({ ...category, image: category.items.find((item) => item.image)?.image || null })),
+    () =>
+      categories.map((category) => {
+        const pictured = category.items.find((item) => item.image)
+        return {
+          ...category,
+          image: pictured?.image || category.image || null,
+          // The tile shows that item's photo, so it takes that item's framing.
+          imageFocus: pictured ? pictured.coverFocus ?? null : null,
+        }
+      }),
     [categories],
   )
 
@@ -97,9 +167,8 @@ export default function PublicMenu() {
   const q = query.trim().toLowerCase()
   const searching = q.length > 0
   const displayCategories = useMemo(() => {
-    const withItems = categories.filter((category) => category.items.length > 0)
-    if (!searching) return withItems
-    return withItems
+    if (!searching) return categories
+    return categories
       .map((category) => ({
         ...category,
         items: category.items.filter((item) =>
@@ -189,6 +258,28 @@ export default function PublicMenu() {
     profile?.priceColor,
   ])
 
+  // The tab title is the store, not the platform index.html names. (Link
+  // previews don't come from this — crawlers never run it; the API writes
+  // those into the HTML itself.)
+  useEffect(() => {
+    if (!profile?.businessName) return undefined
+    const previous = document.title
+    document.title = profile.businessName
+    return () => {
+      document.title = previous
+    }
+  }, [profile?.businessName])
+
+  // A theme's display font, loaded only on a storefront wearing that theme.
+  useEffect(() => {
+    const href = THEME_FONT_URLS[themeKey]
+    if (!href || document.querySelector(`link[href="${href}"]`)) return
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = href
+    document.head.appendChild(link)
+  }, [themeKey])
+
   // Keep the category bar honest while the page scrolls. The active pill used
   // to change only on click, so scrolling by hand left it highlighting a
   // category you'd long since passed. Sections render in this same order, so
@@ -199,6 +290,10 @@ export default function PublicMenu() {
     const ids = visibleCategories.map((category) => category.id)
     if (!ids.length) return undefined
 
+    // Where a section's heading must reach before it counts as current: just
+    // under that theme's sticky bar (classic's scrolls away).
+    const spyOffset =
+      SCROLL_SPY_OFFSETS[themeKey] ?? (KIT_LAYOUTS[themeKey] ? SCROLL_SPY_OFFSETS.kit : SCROLL_SPY_OFFSETS.classic)
     let frame = 0
     const sync = () => {
       frame = 0
@@ -206,7 +301,7 @@ export default function PublicMenu() {
       for (const id of ids) {
         const element = document.getElementById(`category-${id}`)
         if (!element) continue
-        if (element.getBoundingClientRect().top > SCROLL_SPY_OFFSET) break
+        if (element.getBoundingClientRect().top > spyOffset) break
         current = id
       }
       setActiveCategoryId(current)
@@ -221,7 +316,7 @@ export default function PublicMenu() {
       window.removeEventListener('scroll', onScroll)
       if (frame) window.cancelAnimationFrame(frame)
     }
-  }, [visibleCategories])
+  }, [visibleCategories, themeKey])
 
   // Add straight to the cart, unless the product has sizes — then open the
   // sheet so the customer picks one rather than us guessing. Shared by the card
@@ -301,6 +396,7 @@ export default function PublicMenu() {
         notes,
         cartItems,
         subtotal: result.itemsTotal ?? subtotal,
+        currency: cart.totalCurrency,
         deliveryFee: result.deliveryFee ?? 0,
         total: result.total ?? subtotal,
         serviceMethod: result.serviceMethod ?? serviceMethod ?? null,
@@ -435,7 +531,12 @@ export default function PublicMenu() {
         Chrome's auto-translate rewrote this menu on customers' phones (prices,
         buttons, even product names). Portalled overlays carry their own copy,
         since they render outside this element. */}
-    <div translate="no" className="public-storefront notranslate min-h-screen bg-slate-50" style={accentVars}>
+    <div
+      translate="no"
+      data-storefront-theme={themeKey}
+      className={`public-storefront sf-theme-${themeKey} ${kitLayout ? 'sf-kit' : ''} notranslate min-h-screen bg-slate-50`}
+      style={accentVars}
+    >
       {/* Header — three tiers instead of a loose column: identity (logo +
           name + open/closed status + rating) on top with utility icons
           alongside it, then contact info as small pill "chips" (a
@@ -444,137 +545,156 @@ export default function PublicMenu() {
           thin dividers. Open/closed and the star rating were previously only
           visible several taps deep (the hours/reviews drawers); surfacing
           them here is what a real restaurant site leads with. */}
-      <header className="public-header border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
-          <div className="flex items-start gap-3 sm:gap-4">
-            {/* drop-shadow (not box-shadow) so the halo traces the logo's own
-                rounded silhouette rather than its bounding box. Tailwind v4's
-                scale-* sets the standalone `scale` property, not `transform`, so
-                that — not transform — is what has to be transitioned. */}
-            <div className="accent-surface flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-none transition-[box-shadow,scale] duration-300 ease-out hover:shadow-[0_0_16px_1px_var(--logo-glow)] motion-safe:hover:scale-[1.03] sm:h-16 sm:w-16">
-              {profile.logo ? (
-                <img loading="lazy" decoding="async"
-                  src={profile.logo}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="text-2xl font-bold text-white">
-                  {businessName.charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              {/* Up to two lines rather than truncate: beside the logo and the
-                  three header icons, a 320–360px phone left ~100px, which cut
-                  "The Olive Branch" to "…live Branch". */}
-              <h1 className="line-clamp-2 break-words text-lg font-bold leading-tight tracking-tight text-slate-900 min-[380px]:text-xl dark:text-white sm:text-2xl">
-                {businessName}
-              </h1>
-              {reviewsEnabled && reviews.length > 0 && (
-                <div className="mt-1.5 flex items-center gap-1.5">
-                  <StarRating value={avgRating} size="sm" />
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    {avgRating.toFixed(1)} · {t('public.reviewCount', { count: reviews.length })}
+      {Theme ? (
+        <Theme.Header
+          profile={profile}
+          businessName={businessName}
+          reviewsEnabled={reviewsEnabled}
+          reviewCount={reviews.length}
+          avgRating={avgRating}
+          isOpen={isOpen}
+          searchOpen={searchOpen}
+          onToggleSearch={() =>
+            setSearchOpen((open) => {
+              if (open) setQuery('') // clear when closing
+              return !open
+            })
+          }
+          onAbout={() => setAboutOpen(true)}
+          layout={kitLayout}
+          heroImage={banners[0]?.image || visibleCategories.find((category) => category.image)?.image || null}
+        />
+      ) : (
+        <header className="public-header border-b border-slate-200 bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+            <div className="flex items-start gap-3 sm:gap-4">
+              {/* drop-shadow (not box-shadow) so the halo traces the logo's own
+                  rounded silhouette rather than its bounding box. Tailwind v4's
+                  scale-* sets the standalone `scale` property, not `transform`, so
+                  that — not transform — is what has to be transitioned. */}
+              <div className="accent-surface flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-none transition-[box-shadow,scale] duration-300 ease-out hover:shadow-[0_0_16px_1px_var(--logo-glow)] motion-safe:hover:scale-[1.03] sm:h-16 sm:w-16">
+                {profile.logo ? (
+                  <img loading="lazy" decoding="async"
+                    src={profile.logo}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-2xl font-bold text-white">
+                    {businessName.charAt(0).toUpperCase()}
                   </span>
-                </div>
-              )}
-              {/* The header only ever has room for one truncated line — tapping
-                  it opens the full text in its own "About us" modal instead of
-                  just cutting it off with no way to read the rest. */}
-              {profile.description && (
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                {/* Up to two lines rather than truncate: beside the logo and the
+                    three header icons, a 320–360px phone left ~100px, which cut
+                    "The Olive Branch" to "…live Branch". */}
+                <h1 className="line-clamp-2 break-words text-lg font-bold leading-tight tracking-tight text-slate-900 min-[380px]:text-xl dark:text-white sm:text-2xl">
+                  {businessName}
+                </h1>
+                {reviewsEnabled && reviews.length > 0 && (
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <StarRating value={avgRating} size="sm" />
+                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                      {avgRating.toFixed(1)} · {t('public.reviewCount', { count: reviews.length })}
+                    </span>
+                  </div>
+                )}
+                {/* The header only ever has room for one truncated line — tapping
+                    it opens the full text in its own "About us" modal instead of
+                    just cutting it off with no way to read the rest. */}
+                {profile.description && (
+                  <button
+                    type="button"
+                    onClick={() => setAboutOpen(true)}
+                    className="mt-1.5 flex max-w-full items-center gap-1 text-start text-sm text-slate-500 transition-colors hover:text-[var(--merchant-primary)] dark:text-slate-400"
+                  >
+                    <span className="line-clamp-1 min-w-0">{profile.description}</span>
+                    <Icon name="chevronDown" className="h-3.5 w-3.5 shrink-0 -rotate-90 rtl:rotate-90" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => setAboutOpen(true)}
-                  className="mt-1.5 flex max-w-full items-center gap-1 text-start text-sm text-slate-500 transition-colors hover:text-[var(--merchant-primary)] dark:text-slate-400"
+                  onClick={() =>
+                    setSearchOpen((open) => {
+                      if (open) setQuery('') // clear when closing
+                      return !open
+                    })
+                  }
+                  aria-label={t('public.search')}
+                  aria-expanded={searchOpen}
+                  className={`inline-flex h-9 w-9 items-center justify-center p-1.5 transition-all hover:scale-110 active:scale-95 ${searchOpen ? 'accent-text' : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}`}
                 >
-                  <span className="line-clamp-1 min-w-0">{profile.description}</span>
-                  <Icon name="chevronDown" className="h-3.5 w-3.5 shrink-0 -rotate-90 rtl:rotate-90" />
+                  <Icon name="search" className="h-5 w-5" />
                 </button>
-              )}
+                <ThemeToggle tone="bare" />
+                <LanguageSwitcher tone="bare" />
+              </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={() =>
-                  setSearchOpen((open) => {
-                    if (open) setQuery('') // clear when closing
-                    return !open
-                  })
-                }
-                aria-label={t('public.search')}
-                aria-expanded={searchOpen}
-                className={`inline-flex h-9 w-9 items-center justify-center p-1.5 transition-all hover:scale-110 active:scale-95 ${searchOpen ? 'accent-text' : 'text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}`}
-              >
-                <Icon name="search" className="h-5 w-5" />
-              </button>
-              <ThemeToggle tone="bare" />
-              <LanguageSwitcher tone="bare" />
-            </div>
-          </div>
-
-          {(profile.phone || profile.address || Object.values(profile.socialLinks || {}).some(Boolean)) && (
-            // flex-nowrap (was flex-wrap): wrapping dropped the social icons
-            // to their own second line once there were enough of them to
-            // outgrow the row — the whole point of SocialLinks shrinking its
-            // own icons as more get added (see its own comment) is to stay on
-            // one line instead. The phone/address block is the one that gives
-            // way first (min-w-0 + truncate below), since the icons are the
-            // fixed, always-fully-visible half of the row.
-            <div className="mt-4 flex flex-nowrap items-center justify-between gap-x-3 border-t border-slate-100 pt-3.5 dark:border-white/5">
-              {/* Pill "chips" instead of bare text + a bullet dot — reads as
-                  a considered contact bar, closer to a real restaurant site,
-                  instead of two lines of plain text mashed together. */}
-              <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
-                {/* Opens a WhatsApp chat (not the phone dialer) — customers
-                    contacting the restaurant directly, same channel the
-                    order itself gets sent through. */}
-                {profile.phone && (
-                  <a
-                    href={`https://wa.me/${normalizeWhatsAppNumber(profile.phone)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-slate-200 bg-white/60 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-[var(--merchant-primary)] hover:text-[var(--merchant-primary)] dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
-                  >
-                    <Icon name="phone" className="h-3.5 w-3.5 shrink-0" />
-                    {/* dir="ltr": a phone number is inherently
-                        left-to-right digits — without this, the Arabic/
-                        Kurdish RTL paragraph direction lets the browser's
-                        bidi algorithm reorder the digit groups, so "4001 199
-                        0750" could render visually scrambled. */}
-                    <span className="truncate" dir="ltr">{profile.phone}</span>
-                  </a>
-                )}
-                {profile.address && (
-                  // Opens the merchant's exact pinned location (set via the
-                  // map picker in their admin Profile) in Google Maps, not
-                  // just a text search on the address string — a plain span,
-                  // not a link, when the merchant hasn't picked one yet.
-                  profile.latitude != null && profile.longitude != null ? (
+            {(profile.phone || profile.address || Object.values(profile.socialLinks || {}).some(Boolean)) && (
+              // flex-nowrap (was flex-wrap): wrapping dropped the social icons
+              // to their own second line once there were enough of them to
+              // outgrow the row — the whole point of SocialLinks shrinking its
+              // own icons as more get added (see its own comment) is to stay on
+              // one line instead. The phone/address block is the one that gives
+              // way first (min-w-0 + truncate below), since the icons are the
+              // fixed, always-fully-visible half of the row.
+              <div className="mt-4 flex flex-nowrap items-center justify-between gap-x-3 border-t border-slate-100 pt-3.5 dark:border-white/5">
+                {/* Pill "chips" instead of bare text + a bullet dot — reads as
+                    a considered contact bar, closer to a real restaurant site,
+                    instead of two lines of plain text mashed together. */}
+                <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-hidden">
+                  {/* Opens a WhatsApp chat (not the phone dialer) — customers
+                      contacting the restaurant directly, same channel the
+                      order itself gets sent through. */}
+                  {profile.phone && (
                     <a
-                      href={`https://www.google.com/maps?q=${profile.latitude},${profile.longitude}`}
+                      href={`https://wa.me/${normalizeWhatsAppNumber(profile.phone)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-slate-200 bg-white/60 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-[var(--merchant-primary)] hover:text-[var(--merchant-primary)] dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
                     >
-                      <Icon name="mapPin" className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{profile.address}</span>
+                      <Icon name="phone" className="h-3.5 w-3.5 shrink-0" />
+                      {/* dir="ltr": a phone number is inherently
+                          left-to-right digits — without this, the Arabic/
+                          Kurdish RTL paragraph direction lets the browser's
+                          bidi algorithm reorder the digit groups, so "4001 199
+                          0750" could render visually scrambled. */}
+                      <span className="truncate" dir="ltr">{profile.phone}</span>
                     </a>
-                  ) : (
-                    <span className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-slate-200 bg-white/60 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-                      <Icon name="mapPin" className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{profile.address}</span>
-                    </span>
-                  )
-                )}
+                  )}
+                  {profile.address && (
+                    // Opens the pasted map link when present; otherwise uses
+                    // the pin from the map picker.
+                    profile.mapUrl || (profile.latitude != null && profile.longitude != null) ? (
+                      <a
+                        href={profile.mapUrl || `https://www.google.com/maps?q=${profile.latitude},${profile.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-slate-200 bg-white/60 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-[var(--merchant-primary)] hover:text-[var(--merchant-primary)] dark:border-white/10 dark:bg-white/5 dark:text-slate-300"
+                      >
+                        <Icon name="mapPin" className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{profile.address}</span>
+                      </a>
+                    ) : (
+                      <span className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-slate-200 bg-white/60 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                        <Icon name="mapPin" className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{profile.address}</span>
+                      </span>
+                    )
+                  )}
+                </div>
+                <SocialLinks links={profile.socialLinks} className="shrink-0" />
               </div>
-              <SocialLinks links={profile.socialLinks} className="shrink-0" />
-            </div>
-          )}
-        </div>
-      </header>
+            )}
+          </div>
+        </header>
+      )}
 
       {/* Search bar — toggled from the header icon. */}
       {searchOpen && (
@@ -606,7 +726,17 @@ export default function PublicMenu() {
         />
       )}
 
-      {!searching && visibleCategories.length > 0 && <CategoryBar categories={visibleCategories} activeId={activeCategoryId ?? visibleCategories[0].id} onSelect={scrollToCategory} />}
+      {!searching && visibleCategories.length > 0 &&
+        (Theme ? (
+          <Theme.CategoryNav
+            categories={visibleCategories}
+            activeId={activeCategoryId ?? visibleCategories[0].id}
+            onSelect={scrollToCategory}
+            layout={kitLayout}
+          />
+        ) : (
+          <CategoryBar categories={visibleCategories} activeId={activeCategoryId ?? visibleCategories[0].id} onSelect={scrollToCategory} />
+        ))}
 
       <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6">
         {/* Menu + info */}
@@ -646,7 +776,11 @@ export default function PublicMenu() {
               {vt('public.restaurantClosedHint')}
             </div>
           )}
-          {isMenuEmpty ? (
+          {isMenuEmpty && loadingMore ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+              {t('common.loading')}
+            </div>
+          ) : isMenuEmpty ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
               <Icon name="book" className="mx-auto h-8 w-8 text-slate-300" />
               <p className="mt-3 text-sm font-medium text-slate-900">
@@ -664,6 +798,8 @@ export default function PublicMenu() {
               </p>
               <p className="mt-1 text-sm text-slate-500">{t('public.noResultsHint')}</p>
             </div>
+          ) : Theme ? (
+            <Theme.Menu categories={displayCategories} onOpen={setSelectedItem} onQuickAdd={quickAdd} layout={kitLayout} />
           ) : (
             <div className="space-y-8">
               {displayCategories.map((category) => (
@@ -700,6 +836,13 @@ export default function PublicMenu() {
             </div>
           )}
 
+          <div ref={menuLoaderRef} className="h-8" />
+          {loadingMore && !isMenuEmpty && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-center text-sm text-slate-500">
+              {t('common.loading')}
+            </div>
+          )}
+
           {/* Interactive summary cards: hours directly precede customer reviews. */}
           {(profile.workingHours?.length > 0 || reviewsEnabled) && (
           <section className="mt-10 grid gap-4 sm:grid-cols-2">
@@ -725,6 +868,14 @@ export default function PublicMenu() {
         <PoweredBy branding={platformBranding} />
       </main>
 
+      {/* Welcome screen over the (already rendered) menu, so entering is instant. */}
+      <SplashScreen
+        open={profile.splashEnabled === true && !splashDone}
+        profile={profile}
+        branding={platformBranding}
+        onEnter={enterFromSplash}
+      />
+
       {/* Floating bottom nav — Menu (back to top) + Cart (opens the drawer). */}
       <StorefrontNav
         itemCount={cart.totalItems}
@@ -745,6 +896,7 @@ export default function PublicMenu() {
           cart.items.length > 0 ? (
             <CartSummary
               subtotal={cart.totalPrice}
+              currency={cart.totalCurrency}
               itemCount={cart.totalItems}
               onSend={handleSend}
               canSend={canSend}
@@ -780,6 +932,7 @@ export default function PublicMenu() {
         submitError={orderError}
         serviceMethods={profile.serviceMethods}
         subtotal={cart.totalPrice}
+        currency={cart.totalCurrency}
       />
       <StorefrontInfoDrawer panel={infoPanel} onClose={() => setInfoPanel(null)} profile={profile} reviews={reviews} avgRating={avgRating} onSubmitReview={handleSubmitReview} t={vt} />
 

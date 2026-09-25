@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from 'framer-motion'
 import { ImageOff } from 'lucide-react'
+import { focusPosition } from '../../utils/coverFocus'
 
 /**
  * Touch-friendly, horizontally scrollable menu categories — per the client's
@@ -37,6 +38,7 @@ export default function CategoryBar({ categories, activeId, onSelect }) {
                 <img loading="lazy" decoding="async"
                   src={category.image}
                   alt=""
+                  style={{ objectPosition: focusPosition(category.imageFocus) }}
                   className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110"
                 />
               ) : (

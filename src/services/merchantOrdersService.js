@@ -11,7 +11,15 @@ export const merchantOrdersService = {
     return apiClient.patch(`/merchant/orders/${orderId}`, { status })
   },
 
-  listOrders() {
-    return apiClient.get('/merchant/orders')
+  delete(orderId) {
+    return apiClient.delete(`/merchant/orders/${orderId}`)
+  },
+
+  listOrders(params = {}) {
+    const search = new URLSearchParams()
+    if (params.limit) search.set('limit', String(params.limit))
+    if (params.offset) search.set('offset', String(params.offset))
+    const qs = search.toString()
+    return apiClient.get(`/merchant/orders${qs ? `?${qs}` : ''}`)
   },
 }

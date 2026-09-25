@@ -3,6 +3,8 @@ import { navigation } from '../../config/navigation'
 import Icon from '../ui/Icon'
 import SidebarNavLink from './SidebarNavLink'
 import { useAdminAuth } from '../../hooks/useAdminAuth'
+import { usePlatformBranding } from '../../hooks/usePlatformBranding'
+import logo from '../../assets/picture/logo1.png'
 
 /**
  * Persistent navigation rail.
@@ -11,7 +13,10 @@ import { useAdminAuth } from '../../hooks/useAdminAuth'
  */
 export default function Sidebar({ open, onClose }) {
   const { logout } = useAdminAuth()
+  const { branding } = usePlatformBranding()
   const { t } = useTranslation()
+  const platformName = branding.name || 'RestoSaaS'
+  const platformLogo = branding.logo || logo
 
   return (
     <>
@@ -31,11 +36,11 @@ export default function Sidebar({ open, onClose }) {
       >
         {/* Brand */}
         <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 font-bold text-white">
-            R
+          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg bg-white p-1 shadow-sm ring-1 ring-slate-200">
+            <img src={platformLogo} alt={platformName} className="h-full w-full object-contain" />
           </div>
           <div className="leading-tight">
-            <p className="text-sm font-semibold text-slate-900">RestoSaaS</p>
+            <p className="text-sm font-semibold text-slate-900">{platformName}</p>
             <p className="text-xs text-slate-500">Super Admin</p>
           </div>
           <button

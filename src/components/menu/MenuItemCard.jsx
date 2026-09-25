@@ -1,6 +1,7 @@
 import { useVerticalT } from '../../hooks/useVerticalT'
 import Icon from '../ui/Icon'
 import { formatCurrency } from '../../utils/format'
+import { focusPosition } from '../../utils/coverFocus'
 
 /**
  * A single menu item row with thumbnail, details and edit/delete actions.
@@ -23,7 +24,10 @@ export default function MenuItemCard({ item, onEdit, onDelete }) {
           <img
             src={item.image}
             alt=""
-            className="h-full w-full object-cover object-top"
+            loading="lazy"
+            decoding="async"
+            style={{ objectPosition: focusPosition(item.coverFocus, '50% 0%') }}
+            className="h-full w-full object-cover"
           />
         ) : (
           <Icon name="image" className="h-6 w-6 text-slate-300" />
@@ -44,7 +48,7 @@ export default function MenuItemCard({ item, onEdit, onDelete }) {
           </div>
           {variants.length === 0 && (
             <span className="me-2 shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-slate-900">
-              {formatCurrency(item.price)}
+              {formatCurrency(item.price, item.currency)}
             </span>
           )}
         </div>
@@ -64,7 +68,7 @@ export default function MenuItemCard({ item, onEdit, onDelete }) {
               >
                 <span className="whitespace-nowrap font-medium">{variant.value ?? variant.size_name}</span>
                 <span className="whitespace-nowrap tabular-nums">
-                  {formatCurrency(variant.price)}
+                  {formatCurrency(variant.price, item.currency)}
                 </span>
               </li>
             ))}

@@ -120,6 +120,7 @@ export function useCart(merchantId, menuItems = []) {
         variantValue: entry.variantValue,
         attributes: entry.attributes ?? null,
         price: Number(variant ? variant.price : product.price) || 0,
+        currency: product.currency ?? 'IQD',
         // "Was" price for a discount (base-price lines only; variants price
         // themselves). Lets the cart strike the original like the storefront.
         originalPrice:
@@ -200,6 +201,10 @@ export function useCart(merchantId, menuItems = []) {
     () => items.reduce((sum, i) => sum + i.price * i.quantity, 0),
     [items],
   )
+  const totalCurrency = useMemo(() => {
+    const currencies = [...new Set(items.map((item) => item.currency ?? 'IQD'))]
+    return currencies.length === 1 ? currencies[0] : 'IQD'
+  }, [items])
 
   return {
     items,
@@ -210,5 +215,6 @@ export function useCart(merchantId, menuItems = []) {
     clear,
     totalItems,
     totalPrice,
+    totalCurrency,
   }
 }

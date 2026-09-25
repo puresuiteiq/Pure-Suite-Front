@@ -83,6 +83,10 @@ test('no stale translations for codes the backend no longer emits', () => {
     'IMAGE_READ_FAILED',
     'IMAGE_DECODE_FAILED',
     'IMAGE_INVALID',
+    // The welcome-screen upload's own pre-check, and a 413 from a proxy in
+    // front of the API (which carries no code of its own).
+    'SPLASH_VIDEO_TOO_LARGE',
+    'SPLASH_UPLOAD_REJECTED',
   ])
   const known = new Set(CODES)
   const stale = Object.keys(locale('en')).filter((key) => {

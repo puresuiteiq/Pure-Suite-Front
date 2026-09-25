@@ -5,7 +5,7 @@
  * storefront checkout stays plain (no method picker, no fee).
  *
  * Shape:
- *   { delivery: { enabled, zones: [{ name, fee }] },
+ *   { delivery: { enabled, zones: [{ name, fee, areas?: [{ name, fee }] }] },
  *     dinein:   { enabled },
  *     pickup:   { enabled } }
  */
@@ -30,6 +30,12 @@ export function normalizeServiceMethods(cfg) {
       zones: (Array.isArray(cfg?.delivery?.zones) ? cfg.delivery.zones : []).map((z) => ({
         name: String(z?.name ?? ''),
         fee: Math.max(0, Math.round(Number(z?.fee) || 0)),
+        areas: (Array.isArray(z?.areas) ? z.areas : [])
+          .map((area) => ({
+            name: String(area?.name ?? '').trim(),
+            fee: Math.max(0, Math.round(Number(area?.fee) || 0)),
+          }))
+          .filter((area) => area.name),
       })),
     },
     dinein: { enabled: Boolean(cfg?.dinein?.enabled) },

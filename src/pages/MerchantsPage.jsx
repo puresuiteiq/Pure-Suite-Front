@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '../components/ui/PageHeader'
 import Button from '../components/ui/Button'
@@ -18,6 +18,8 @@ const STATUS_STYLES = {
   suspended: 'bg-red-50 text-red-700 ring-red-600/20',
 }
 
+const MERCHANT_PAGE_SIZE = 10
+
 function StatusBadge({ status }) {
   const { t } = useTranslation()
   return (
@@ -32,8 +34,21 @@ function StatusBadge({ status }) {
 }
 
 export default function MerchantsPage() {
-  const { data: merchants, setData: setMerchants, loading, error } = useMerchants()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
+  const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get('q') ?? '')
+  const {
+    data: merchants,
+    setData: setMerchants,
+    loading,
+    loadingMore,
+    error,
+    total,
+    hasMore,
+    loadMore,
+  } = useMerchants({ pageSize: MERCHANT_PAGE_SIZE, query: debouncedSearch })
   const { t } = useTranslation()
+  const loadMoreRef = useRef(null)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [toEdit, setToEdit] = useState(null) // merchant being edited
@@ -41,6 +56,33 @@ export default function MerchantsPage() {
   const [toDelete, setToDelete] = useState(null) // merchant pending delete confirm
   const [deleteError, setDeleteError] = useState(null)
   const [deleting, setDeleting] = useState(false)
+
+  useEffect(() => {
+    const q = searchParams.get('q') ?? ''
+    setSearch((current) => (current === q ? current : q))
+  }, [searchParams])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const q = search.trim()
+      setDebouncedSearch(q)
+      setSearchParams(q ? { q } : {}, { replace: true })
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [search, setSearchParams])
+
+  useEffect(() => {
+    const node = loadMoreRef.current
+    if (!node || !hasMore) return undefined
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMore()
+      },
+      { rootMargin: '800px 0px' },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [hasMore, loadMore])
 
   const handleCreate = async (form) => {
     const created = await merchantsService.create(form)
@@ -92,7 +134,7 @@ export default function MerchantsPage() {
         subtitle={
           loading
             ? t('merchants.subtitleLoading')
-            : t('merchants.subtitle', { count: merchants.length })
+            : t('merchants.subtitle', { count: total ?? merchants.length })
         }
         actions={
           <Button icon="plus" onClick={() => setCreateOpen(true)}>
@@ -100,6 +142,32 @@ export default function MerchantsPage() {
           </Button>
         }
       />
+
+      <div className="mb-5">
+        <label className="relative block max-w-xl">
+          <Icon
+            name="search"
+            className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+          />
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t('topbar.searchPlaceholder')}
+            className="w-full rounded-2xl border border-slate-200/70 bg-white/75 py-3 ps-10 pe-10 text-sm text-slate-800 shadow-sm outline-none backdrop-blur transition-all placeholder:text-slate-400 focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:focus:bg-slate-900"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute end-2.5 top-1/2 -translate-y-1/2 rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-slate-100"
+              aria-label={t('common.clear')}
+            >
+              <Icon name="close" className="h-4 w-4" />
+            </button>
+          )}
+        </label>
+      </div>
 
       <div>
         {loading && (
@@ -350,6 +418,18 @@ export default function MerchantsPage() {
                   )
                 })}
             </div>
+          </div>
+        )}
+
+        {!loading && !error && merchants.length > 0 && (
+          <div ref={loadMoreRef} className="flex justify-center py-6">
+            {loadingMore && (
+              <span
+                aria-label="Loading more"
+                role="status"
+                className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-brand-600"
+              />
+            )}
           </div>
         )}
       </div>

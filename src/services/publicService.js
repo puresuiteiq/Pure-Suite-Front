@@ -14,8 +14,13 @@ export const publicService = {
     return apiClient.get('/public/config', { auth: 'none' })
   },
 
-  getRestaurant(merchantId) {
-    return apiClient.get(`/public/merchants/${encodeURIComponent(merchantId)}`, {
+  getRestaurant(merchantId, params = {}) {
+    const search = new URLSearchParams()
+    if (params.menu === false) search.set('menu', '0')
+    if (params.menuLimit) search.set('menuLimit', String(params.menuLimit))
+    if (params.menuOffset) search.set('menuOffset', String(params.menuOffset))
+    const query = search.toString()
+    return apiClient.get(`/public/merchants/${encodeURIComponent(merchantId)}${query ? `?${query}` : ''}`, {
       auth: 'none',
     })
   },

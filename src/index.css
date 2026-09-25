@@ -1328,3 +1328,793 @@ body {
 /* The light-mode equivalent of the same forced button-box rule was removed
    above for the same reason: search/theme/language are meant to be bare, and
    CategoryBar's pills style their own border/wash in JSX. */
+
+/* =========================================================================
+   Storefront themes — "royal" and "modern" (the classic design is everything
+   above). Chosen by the merchant (profile → storefront design) and applied as
+   .sf-theme-<key> on .public-storefront by PublicMenu. Every colour a theme
+   uses is either its own neutral (per light/dark) or the merchant's accent
+   (--merchant-primary / --merchant-shadow), so a theme always wears the
+   store's brand.
+
+   The `html` prefix on the root rules is for specificity only: the classic
+   rules above paint .public-storefront with !important, per theme mode.
+   ========================================================================= */
+
+/* Shared by both themes ---------------------------------------------------- */
+/* The theme header hosts the language/theme dropdowns — above the floating
+   nav, like the classic header (see .public-storefront > .public-header). */
+.public-storefront > .sf-header {
+  position: relative;
+  z-index: 45;
+}
+/* Pinned while browsing. Must out-rank the rule above that makes every direct
+   child position:relative (it would silently un-stick it). */
+.public-storefront > .sf-category-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+.sf-open-status.is-open .sf-open-dot {
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgb(34 197 94 / .55);
+  animation: sf-pulse 2.2s ease-out infinite;
+}
+.sf-open-status.is-closed .sf-open-dot { background: #ef4444; }
+@keyframes sf-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(34 197 94 / .55); }
+  70%, 100% { box-shadow: 0 0 0 7px rgb(34 197 94 / 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sf-open-status.is-open .sf-open-dot { animation: none; }
+}
+.sf-tool.is-active { color: var(--merchant-primary); }
+
+/* Royal --------------------------------------------------------------------
+   A fine-dining menu card. Dark by default, ivory in light mode. */
+html .public-storefront.sf-theme-royal {
+  --r-bg: #0e0c09;
+  --r-surface: #17140f;
+  --r-ink: #f4ecdc;
+  --r-muted: #a99f8c;
+  --r-line: color-mix(in srgb, var(--merchant-primary) 55%, #3b3326);
+  --r-line-soft: color-mix(in srgb, var(--merchant-primary) 18%, #2a241a);
+  --r-display: 'Amiri', 'Cairo', Georgia, serif;
+  background:
+    radial-gradient(1100px 520px at 50% -8%, color-mix(in srgb, var(--merchant-primary) 16%, transparent), transparent 70%),
+    radial-gradient(900px 600px at 50% 110%, color-mix(in srgb, var(--merchant-shadow) 10%, transparent), transparent 70%),
+    var(--r-bg) !important;
+  background-attachment: fixed !important;
+  box-shadow: none !important;
+  color: var(--r-ink);
+}
+html[data-theme='light'] .public-storefront.sf-theme-royal {
+  --r-bg: #f8f4ea;
+  --r-surface: #fffdf7;
+  --r-ink: #221c12;
+  --r-muted: #7b715f;
+  --r-line: color-mix(in srgb, var(--merchant-primary) 45%, #d8ccb4);
+  --r-line-soft: color-mix(in srgb, var(--merchant-primary) 14%, #e7dcc6);
+}
+.public-storefront.sf-theme-royal::before,
+.public-storefront.sf-theme-modern::before { display: none !important; }
+
+.sf-theme-royal .sf-royal-display { font-family: var(--r-display); }
+.sf-theme-royal .sf-royal-muted,
+.sf-theme-royal .sf-royal-desc,
+.sf-theme-royal .sf-royal-status { color: var(--r-muted); }
+.sf-theme-royal .sf-royal-accent,
+.sf-theme-royal .sf-royal-kicker { color: var(--merchant-primary); }
+html[data-theme='dark'] .sf-theme-royal .sf-royal-accent,
+html[data-theme='dark'] .sf-theme-royal .sf-royal-kicker { color: color-mix(in srgb, var(--merchant-primary) 70%, white); }
+.sf-theme-royal .sf-royal-title,
+.sf-theme-royal .sf-royal-section-title,
+.sf-theme-royal .sf-royal-item-name { color: var(--r-ink); }
+.sf-theme-royal .sf-royal-link { transition: color .2s ease; }
+.sf-theme-royal .sf-royal-link:hover { color: var(--merchant-primary); }
+.sf-theme-royal .sf-royal-desc:hover { color: var(--r-ink); }
+
+.sf-royal-header { border-bottom: 1px solid var(--r-line-soft); }
+.sf-royal-glow {
+  background:
+    radial-gradient(520px 260px at 50% 38%, color-mix(in srgb, var(--merchant-primary) 22%, transparent), transparent 70%);
+}
+.sf-royal-crest {
+  background: conic-gradient(from 210deg,
+    var(--merchant-primary),
+    color-mix(in srgb, var(--merchant-primary) 45%, white),
+    var(--merchant-shadow),
+    color-mix(in srgb, var(--merchant-primary) 45%, white),
+    var(--merchant-primary));
+  box-shadow:
+    0 0 0 7px var(--r-bg),
+    0 0 0 8px var(--r-line),
+    0 24px 50px -18px color-mix(in srgb, var(--merchant-primary) 70%, transparent);
+}
+.sf-royal-crest-inner { background: #fff; color: var(--merchant-primary); }
+.sf-royal-rule { background: var(--r-line); }
+.sf-royal-diamond { background: var(--merchant-primary); }
+
+/* Sticky tab bar */
+.sf-royal-nav {
+  /* Solid, not translucent: the menu scrolls underneath it, and a see-through
+     bar let the dish names show through the tabs. */
+  background: var(--r-bg);
+  border-bottom: 1px solid var(--r-line-soft);
+  box-shadow: 0 12px 24px -20px rgb(0 0 0 / .6);
+}
+.sf-royal-tab { color: var(--r-muted); transition: color .25s ease; }
+.sf-royal-tab:hover,
+.sf-royal-tab.is-active { color: var(--r-ink); }
+.sf-royal-tab-mark {
+  background: var(--merchant-primary);
+  transform: scaleX(0);
+  transition: transform .35s cubic-bezier(.22, 1, .36, 1);
+}
+.sf-royal-tab.is-active .sf-royal-tab-mark { transform: scaleX(1); }
+
+/* Menu list */
+.sf-royal-item { border-bottom: 1px solid var(--r-line-soft); }
+.sf-royal-leader { border-bottom: 2px dotted color-mix(in srgb, var(--merchant-primary) 45%, transparent); }
+.sf-royal-thumb {
+  box-shadow: 0 0 0 1px var(--r-line-soft), 0 14px 26px -14px rgb(0 0 0 / .55);
+}
+.sf-royal-discount { background: var(--merchant-primary); color: #fff; }
+.sf-royal-badge {
+  background: color-mix(in srgb, var(--merchant-primary) 14%, transparent);
+  color: var(--r-ink);
+}
+.sf-royal-add {
+  color: var(--merchant-primary);
+  border: 1.5px solid color-mix(in srgb, var(--merchant-primary) 70%, transparent);
+  transition: background-color .25s ease, color .25s ease, transform .2s ease;
+}
+html[data-theme='dark'] .sf-royal-add { color: color-mix(in srgb, var(--merchant-primary) 70%, white); }
+.sf-royal-add:hover {
+  background: var(--merchant-primary);
+  color: #fff !important;
+}
+.sf-royal-item.is-blocked .sf-royal-item-name { opacity: .6; }
+
+/* Shared storefront pieces, dressed for royal */
+.public-storefront.sf-theme-royal .luxury-glass,
+.public-storefront.sf-theme-royal .luxury-card:not(.public-product-card) {
+  background: var(--r-surface) !important;
+  border-color: var(--r-line-soft) !important;
+}
+.public-storefront.sf-theme-royal .public-carousel { border-color: var(--r-line) !important; }
+/* The carousel is edge to edge in classic; the themes frame it like a card. */
+.public-storefront.sf-theme-royal .public-carousel,
+.public-storefront.sf-theme-modern .public-carousel {
+  width: calc(100% - 2rem);
+  margin-top: 1.5rem;
+}
+.public-storefront.sf-theme-royal .storefront-nav nav {
+  background: color-mix(in srgb, var(--r-surface) 92%, transparent) !important;
+  border-color: var(--r-line) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* Modern -------------------------------------------------------------------
+   A delivery app, in light or dark. */
+html .public-storefront.sf-theme-modern {
+  --m-bg: #0f1014;
+  --m-surface: #181a20;
+  --m-surface-2: #22252d;
+  --m-ink: #f5f6f8;
+  --m-muted: #9aa0ab;
+  --m-border: rgb(255 255 255 / .07);
+  background: var(--m-bg) !important;
+  box-shadow: none !important;
+  color: var(--m-ink);
+}
+html[data-theme='light'] .public-storefront.sf-theme-modern {
+  --m-bg: #f3f4f8;
+  --m-surface: #ffffff;
+  --m-surface-2: #eef0f5;
+  --m-ink: #12141a;
+  --m-muted: #6b7180;
+  --m-border: rgb(15 20 30 / .07);
+}
+.sf-theme-modern .sf-modern-ink { color: var(--m-ink); }
+.sf-theme-modern .sf-modern-muted { color: var(--m-muted); }
+.sf-theme-modern .sf-modern-accent { color: var(--merchant-primary); }
+html[data-theme='dark'] .sf-theme-modern .sf-modern-accent { color: color-mix(in srgb, var(--merchant-primary) 65%, white); }
+
+.sf-modern-cover-art {
+  background:
+    radial-gradient(rgb(255 255 255 / .16) 1.3px, transparent 1.5px) 0 0 / 18px 18px,
+    radial-gradient(420px 220px at 85% 0%, rgb(255 255 255 / .28), transparent 70%),
+    radial-gradient(360px 240px at 0% 100%, color-mix(in srgb, var(--merchant-shadow) 80%, black), transparent 70%),
+    linear-gradient(135deg, var(--merchant-primary), var(--merchant-shadow));
+}
+/* Tools sit on the coloured cover: white icons on a smoked-glass capsule.
+   Only the triggers — the language menu that opens from one stays as it is. */
+.sf-modern-tools {
+  background: rgb(0 0 0 / .22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+/* html[data-theme] out-ranks the per-mode .text-slate-500 overrides above,
+   which ThemeToggle / LanguageSwitcher carry. */
+html[data-theme] .public-storefront .sf-modern-tools > button,
+html[data-theme] .public-storefront .sf-modern-tools > div > button { color: #fff !important; }
+
+.sf-modern-card {
+  background: var(--m-surface);
+  border: 1px solid var(--m-border);
+  box-shadow: 0 24px 60px -28px rgb(0 0 0 / .45);
+}
+.sf-modern-logo {
+  background: linear-gradient(135deg, var(--merchant-primary), var(--merchant-shadow));
+  border: 4px solid var(--m-surface);
+  box-shadow: 0 14px 30px -12px rgb(0 0 0 / .45);
+}
+.sf-modern-logo img { background: #fff; }
+.sf-modern-chip { background: var(--m-surface-2); color: var(--m-ink); }
+.sf-modern-chip-link { transition: color .2s ease, background-color .2s ease; }
+.sf-modern-chip-link:hover { color: var(--merchant-primary); }
+.sf-modern-chip.sf-open-status.is-open { background: rgb(34 197 94 / .13); color: #15803d; }
+.sf-modern-chip.sf-open-status.is-closed { background: rgb(239 68 68 / .12); color: #dc2626; }
+html[data-theme='dark'] .sf-modern-chip.sf-open-status.is-open { color: #4ade80; }
+html[data-theme='dark'] .sf-modern-chip.sf-open-status.is-closed { color: #f87171; }
+.sf-modern-star { color: #f59e0b; }
+.sf-modern-divider { border-color: var(--m-border); }
+
+/* Sticky category bubbles */
+.sf-modern-nav {
+  /* Solid for the same reason as .sf-royal-nav. */
+  background: var(--m-bg);
+  box-shadow: 0 12px 24px -20px rgb(0 0 0 / .45);
+}
+.sf-modern-ring { background: color-mix(in srgb, var(--m-muted) 30%, transparent); }
+.sf-modern-bubble.is-active .sf-modern-ring {
+  background: conic-gradient(from 200deg, var(--merchant-primary), var(--merchant-shadow), color-mix(in srgb, var(--merchant-primary) 50%, white), var(--merchant-primary));
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--merchant-primary) 80%, transparent);
+}
+.sf-modern-bubble-img {
+  background: var(--m-surface-2);
+  border: 2.5px solid var(--m-bg);
+  color: var(--m-muted);
+}
+.sf-modern-bubble-name { color: var(--m-muted); transition: color .2s ease; }
+.sf-modern-bubble.is-active .sf-modern-bubble-name { color: var(--m-ink); }
+
+/* Product cards */
+.sf-modern-count {
+  background: color-mix(in srgb, var(--merchant-primary) 14%, transparent);
+  color: var(--merchant-primary);
+}
+html[data-theme='dark'] .sf-modern-count { color: color-mix(in srgb, var(--merchant-primary) 65%, white); }
+.sf-modern-item {
+  background: var(--m-surface);
+  border: 1px solid var(--m-border);
+  box-shadow: 0 12px 30px -20px rgb(0 0 0 / .45);
+  transition: transform .3s cubic-bezier(.22, 1, .36, 1), box-shadow .3s ease;
+}
+.sf-modern-item:hover,
+.sf-modern-item:focus-within {
+  transform: translateY(-4px);
+  box-shadow:
+    0 22px 40px -22px rgb(0 0 0 / .5),
+    0 18px 40px -26px color-mix(in srgb, var(--merchant-primary) 80%, transparent);
+}
+.sf-modern-item:active { transform: scale(.985); }
+.sf-modern-photo { background: var(--m-surface-2); }
+.sf-modern-placeholder {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--merchant-primary) 22%, var(--m-surface-2)), var(--m-surface-2));
+  color: var(--merchant-primary);
+}
+.sf-modern-price { background: rgb(255 255 255 / .92); }
+html[data-theme='dark'] .sf-modern-price { background: rgb(15 16 20 / .78); }
+.sf-modern-discount { background: #ef4444; }
+.sf-modern-add { box-shadow: 0 12px 22px -10px color-mix(in srgb, var(--merchant-primary) 85%, transparent); }
+.sf-modern-item.is-blocked .sf-modern-ink { opacity: .6; }
+
+/* Shared storefront pieces, dressed for modern */
+.public-storefront.sf-theme-modern .luxury-glass,
+.public-storefront.sf-theme-modern .luxury-card:not(.public-product-card) {
+  background: var(--m-surface) !important;
+  border-color: var(--m-border) !important;
+}
+.public-storefront.sf-theme-modern .public-carousel { border-color: var(--m-border) !important; }
+.public-storefront.sf-theme-modern .storefront-nav nav {
+  background: var(--m-surface) !important;
+  border-color: var(--m-border) !important;
+  box-shadow: 0 18px 40px -16px rgb(0 0 0 / .45) !important;
+}
+
+/* =========================================================================
+   Theme kit — the shared base for the kit-built designs (.sf-kit), then each
+   design's own identity (.sf-theme-<key>). A design sets its palette as
+   --t-* variables for dark (default) and light mode; everything below reads
+   them, plus the merchant's --merchant-primary / --merchant-shadow.
+
+     --t-bg  --t-surface  --t-chip  --t-ink  --t-muted  --t-line
+     --t-display (heading font)   --t-photo (card photo aspect ratio)
+   ========================================================================= */
+
+html .public-storefront.sf-kit {
+  --t-accent: var(--merchant-primary);
+  background: var(--t-page, var(--t-bg)) !important;
+  background-attachment: fixed !important;
+  box-shadow: none !important;
+  color: var(--t-ink);
+}
+html[data-theme='dark'] .public-storefront.sf-kit {
+  --t-accent: color-mix(in srgb, var(--merchant-primary) 70%, white);
+}
+.public-storefront.sf-kit::before { display: none !important; }
+
+.sf-kit .sf-kit-display { font-family: var(--t-display, inherit); }
+.sf-kit .sf-kit-muted,
+.sf-kit .sf-kit-desc,
+.sf-kit .sf-kit-status { color: var(--t-muted); }
+.sf-kit .sf-kit-desc { transition: color .2s ease; }
+.sf-kit .sf-kit-desc:hover { color: var(--t-ink); }
+.sf-kit .sf-kit-title,
+.sf-kit .sf-kit-section-title,
+.sf-kit .sf-kit-item-name { color: var(--t-ink); }
+.sf-kit .sf-kit-kicker,
+.sf-kit .sf-kit-accent { color: var(--t-accent); }
+.sf-kit .sf-kit-star { color: #f59e0b; }
+
+/* Logo */
+.sf-kit-logo {
+  background: #fff;
+  color: var(--merchant-primary);
+  border-radius: 1.5rem;
+  box-shadow: 0 16px 34px -16px rgb(0 0 0 / .5);
+}
+
+/* Chips */
+.sf-kit .sf-kit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  border-radius: 9999px;
+  padding: .375rem .8rem;
+  font-size: .75rem;
+  font-weight: 700;
+  background: var(--t-chip);
+  color: var(--t-ink);
+}
+.sf-kit .sf-kit-chip-link { transition: color .2s ease; }
+.sf-kit .sf-kit-chip-link:hover { color: var(--t-accent); }
+.sf-kit .sf-kit-chip.sf-open-status.is-open { background: rgb(34 197 94 / .14); color: #15803d; }
+.sf-kit .sf-kit-chip.sf-open-status.is-closed { background: rgb(239 68 68 / .13); color: #dc2626; }
+html[data-theme='dark'] .sf-kit .sf-kit-chip.sf-open-status.is-open { color: #4ade80; }
+html[data-theme='dark'] .sf-kit .sf-kit-chip.sf-open-status.is-closed { color: #f87171; }
+/* On a photo the status reads white on smoked glass; its dot keeps the colour.
+   (Out-ranks the green/red status text above.) */
+.sf-kit .sf-kit-chip.sf-kit-on-photo.sf-open-status { background: rgb(0 0 0 / .4); color: #fff; backdrop-filter: blur(8px); }
+.sf-kit-social-row { border-top: 1px solid var(--t-line); }
+
+/* Tools over a photo or cover: white icons on smoked glass (triggers only). */
+.sf-kit-glass-tools { background: rgb(0 0 0 / .3); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+html[data-theme] .public-storefront .sf-kit-glass-tools > button,
+html[data-theme] .public-storefront .sf-kit-glass-tools > div > button { color: #fff !important; }
+
+/* Category navigation (sticky; solid so the menu doesn't show through) */
+.sf-kit-nav {
+  background: var(--t-bg);
+  box-shadow: 0 12px 24px -20px rgb(0 0 0 / .5);
+}
+.sf-kit-nav-pills .sf-kit-navitem {
+  border-radius: 9999px;
+  padding: .55rem 1.1rem;
+  font-size: .875rem;
+  font-weight: 700;
+  color: var(--t-muted);
+  background: var(--t-chip);
+  transition: background-color .25s ease, color .25s ease, box-shadow .25s ease, transform .2s ease;
+}
+.sf-kit-nav-pills .sf-kit-navitem:hover { color: var(--t-ink); }
+.sf-kit-nav-pills .sf-kit-navitem.is-active {
+  color: #fff;
+  background: linear-gradient(135deg, var(--merchant-primary), var(--merchant-shadow));
+  box-shadow: 0 10px 20px -10px color-mix(in srgb, var(--merchant-primary) 80%, transparent);
+}
+.sf-kit-nav-tabs { border-bottom: 1px solid var(--t-line); }
+.sf-kit-nav-tabs .sf-kit-navitem {
+  padding: .6rem .85rem;
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--t-muted);
+  transition: color .25s ease;
+}
+.sf-kit-nav-tabs .sf-kit-navitem::after {
+  content: '';
+  position: absolute;
+  inset-inline: .85rem;
+  bottom: -.75rem;
+  height: 2px;
+  background: var(--t-accent);
+  transform: scaleX(0);
+  transition: transform .35s cubic-bezier(.22, 1, .36, 1);
+}
+.sf-kit-nav-tabs .sf-kit-navitem:hover,
+.sf-kit-nav-tabs .sf-kit-navitem.is-active { color: var(--t-ink); }
+.sf-kit-nav-tabs .sf-kit-navitem.is-active::after { transform: scaleX(1); }
+.sf-kit-navnum { margin-inline-end: .4rem; font-size: .7rem; color: var(--t-accent); }
+
+/* Section headings */
+.sf-kit-section-rule { height: 1px; background: var(--t-line); }
+.sf-kit-section-count {
+  border-radius: 9999px;
+  padding: .1rem .6rem;
+  color: var(--t-accent);
+  background: color-mix(in srgb, var(--merchant-primary) 13%, transparent);
+}
+.sf-kit-section-num {
+  font-size: 3rem;
+  line-height: .9;
+  font-weight: 700;
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--t-accent);
+}
+
+/* Photos, badges, prices, add buttons */
+.sf-kit-photo { background: var(--t-chip); border-radius: 1.1rem; }
+.sf-kit-placeholder {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--merchant-primary) 22%, var(--t-chip)), var(--t-chip));
+  color: var(--t-accent);
+}
+.sf-kit-discount { background: #ef4444; color: #fff; }
+.sf-kit-status-badge { background: rgb(15 23 42 / .82); color: #fff; }
+.sf-kit-add {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: .9rem;
+  color: #fff;
+  background: linear-gradient(135deg, var(--merchant-primary), var(--merchant-shadow));
+  box-shadow: 0 12px 22px -10px color-mix(in srgb, var(--merchant-primary) 85%, transparent);
+}
+.sf-kit-add-text {
+  color: #fff;
+  background: linear-gradient(135deg, var(--merchant-primary), var(--merchant-shadow));
+  box-shadow: 0 12px 22px -10px color-mix(in srgb, var(--merchant-primary) 85%, transparent);
+}
+.sf-kit .is-blocked .sf-kit-item-name { opacity: .6; }
+
+/* Row layout */
+.sf-kit-row { padding: 1.15rem 0; border-bottom: 1px solid var(--t-line); }
+.sf-kit-row-media .sf-kit-add { bottom: -.55rem; inset-inline-start: -.55rem; width: 2.25rem; height: 2.25rem; }
+
+/* Card layout */
+.sf-kit-card {
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: var(--t-surface);
+  border: 1px solid var(--t-line);
+  box-shadow: 0 14px 30px -22px rgb(0 0 0 / .5);
+  transition: transform .3s cubic-bezier(.22, 1, .36, 1), box-shadow .3s ease;
+}
+.sf-kit-card:hover,
+.sf-kit-card:focus-within { transform: translateY(-4px); }
+.sf-kit-card .sf-kit-photo { aspect-ratio: var(--t-photo, 1 / 1); border-radius: 0; }
+.sf-kit-card-body { padding: .8rem .9rem 1rem; padding-inline-end: 3.4rem; }
+.sf-kit-card .sf-kit-add { bottom: .75rem; inset-inline-end: .75rem; }
+.sf-kit-price-tag {
+  bottom: .6rem;
+  inset-inline-start: .6rem;
+  border-radius: 9999px;
+  padding: .2rem .75rem;
+  font-size: .85rem;
+  font-weight: 900;
+  background: rgb(255 255 255 / .92);
+  backdrop-filter: blur(8px);
+}
+html[data-theme='dark'] .sf-kit .sf-kit-price-tag { background: rgb(12 12 14 / .78); }
+/* The price shows on the photo by default; a design can move it into the
+   card's text instead (body-price) — then the separate "was" line hides. */
+.sf-kit-body-price { display: none; }
+.sf-kit-feature-photo { aspect-ratio: 4 / 3; border-radius: 1.5rem; }
+
+/* Shared storefront pieces, dressed by the palette */
+.public-storefront.sf-kit .luxury-glass,
+.public-storefront.sf-kit .luxury-card:not(.public-product-card) {
+  background: var(--t-surface) !important;
+  border-color: var(--t-line) !important;
+}
+.public-storefront.sf-kit .public-carousel {
+  border-color: var(--t-line) !important;
+  width: calc(100% - 2rem);
+  margin-top: 1.5rem;
+}
+.public-storefront.sf-kit .storefront-nav nav {
+  /* --t-solid for a design whose surface is see-through (neon's glass). */
+  background: var(--t-solid, var(--t-surface)) !important;
+  border-color: var(--t-line) !important;
+  box-shadow: 0 18px 40px -16px rgb(0 0 0 / .45) !important;
+}
+
+/* ── Pure — Scandinavian minimal ─────────────────────────────────────── */
+html .public-storefront.sf-theme-pure {
+  --t-bg: #0a0a0a; --t-surface: #141414; --t-chip: #1c1c1c;
+  --t-ink: #fafafa; --t-muted: #a3a3a3; --t-line: #262626;
+}
+html[data-theme='light'] .public-storefront.sf-theme-pure {
+  --t-bg: #fafaf9; --t-surface: #ffffff; --t-chip: #f0efed;
+  --t-ink: #0a0a0a; --t-muted: #737373; --t-line: #e7e5e4;
+}
+.sf-theme-pure .sf-kit-header { border-bottom: 1px solid var(--t-line); }
+.sf-theme-pure .sf-kit-logo { border-radius: 1.6rem; box-shadow: 0 0 0 1px var(--t-line); }
+.sf-theme-pure .sf-kit-kicker { color: var(--t-muted); }
+.sf-theme-pure .sf-kit-nav-pills .sf-kit-navitem { background: transparent; box-shadow: inset 0 0 0 1px var(--t-line); }
+.sf-theme-pure .sf-kit-nav-pills .sf-kit-navitem.is-active { background: var(--t-ink); color: var(--t-bg); box-shadow: none; }
+.sf-theme-pure .sf-kit-section-count { background: var(--t-chip); color: var(--t-muted); }
+.sf-theme-pure .sf-kit-photo { border-radius: 1.25rem; }
+.sf-theme-pure .sf-kit-add { border-radius: 9999px; background: var(--t-ink); color: var(--t-bg); box-shadow: 0 0 0 3px var(--t-bg); }
+
+/* ── Café — kraft paper, arches and dashed tickets ───────────────────── */
+html .public-storefront.sf-theme-cafe {
+  --t-bg: #17110c; --t-surface: #211912; --t-chip: #2e241a;
+  --t-ink: #f3e6d3; --t-muted: #b09a80; --t-line: #3d2f22;
+  --t-display: 'Reem Kufi', 'Cairo', sans-serif;
+  --t-page:
+    radial-gradient(rgb(255 220 180 / .045) 1px, transparent 1.3px) 0 0 / 7px 7px,
+    radial-gradient(900px 480px at 50% -10%, color-mix(in srgb, var(--merchant-primary) 14%, transparent), transparent 70%),
+    var(--t-bg);
+}
+html[data-theme='light'] .public-storefront.sf-theme-cafe {
+  --t-bg: #f3e9da; --t-surface: #fffaf2; --t-chip: #e9dac3;
+  --t-ink: #2b1d12; --t-muted: #86705a; --t-line: #d9c4a6;
+  --t-page:
+    radial-gradient(rgb(120 80 40 / .07) 1px, transparent 1.3px) 0 0 / 7px 7px,
+    radial-gradient(900px 480px at 50% -10%, color-mix(in srgb, var(--merchant-primary) 12%, transparent), transparent 70%),
+    var(--t-bg);
+}
+.sf-theme-cafe .sf-kit-logo {
+  border-radius: 999px 999px 1.4rem 1.4rem;
+  border: 4px solid var(--t-surface);
+  box-shadow: 0 0 0 2px var(--t-line), 0 20px 34px -16px rgb(60 30 10 / .6);
+}
+.sf-theme-cafe .sf-kit-flourish {
+  width: 6.5rem;
+  height: 10px;
+  background: radial-gradient(circle, var(--t-accent) 2.6px, transparent 3.2px) 0 50% / 13px 10px repeat-x;
+}
+.sf-theme-cafe .sf-kit-nav-pills .sf-kit-navitem:not(.is-active) { background: var(--t-surface); box-shadow: inset 0 0 0 1.5px var(--t-line); }
+.sf-theme-cafe .sf-kit-section-rule { height: 0; border-top: 2px dashed var(--t-line); background: none; }
+.sf-theme-cafe .sf-kit-rows { gap: .9rem 1.5rem; }
+.sf-theme-cafe .sf-kit-row {
+  padding: .9rem;
+  border: 1.5px dashed var(--t-line);
+  border-radius: 1.4rem;
+  background: var(--t-surface);
+  box-shadow: 0 14px 26px -22px rgb(60 30 10 / .55);
+}
+.sf-theme-cafe .sf-kit-photo { border-radius: 1rem; }
+.sf-theme-cafe .sf-kit-add { border-radius: 9999px; }
+
+/* ── Neon — nightlife glow ───────────────────────────────────────────── */
+html .public-storefront.sf-theme-neon {
+  --t-bg: #07060d; --t-surface: rgb(255 255 255 / .045); --t-chip: rgb(255 255 255 / .07);
+  --t-ink: #f5f3ff; --t-muted: #a09cc0; --t-line: color-mix(in srgb, var(--merchant-primary) 30%, transparent);
+  --t-solid: #14121f;
+  --t-page:
+    radial-gradient(700px 420px at 85% 0%, color-mix(in srgb, var(--merchant-primary) 26%, transparent), transparent 70%),
+    radial-gradient(700px 500px at 0% 100%, color-mix(in srgb, var(--merchant-shadow) 24%, transparent), transparent 70%),
+    var(--t-bg);
+}
+html[data-theme='light'] .public-storefront.sf-theme-neon {
+  --t-bg: #f4f2ff; --t-surface: rgb(255 255 255 / .8); --t-chip: rgb(80 60 160 / .07);
+  --t-ink: #1a1333; --t-muted: #6b6590; --t-line: color-mix(in srgb, var(--merchant-primary) 32%, transparent);
+  --t-solid: #ffffff;
+  --t-page:
+    radial-gradient(700px 420px at 85% 0%, color-mix(in srgb, var(--merchant-primary) 20%, transparent), transparent 70%),
+    radial-gradient(700px 500px at 0% 100%, color-mix(in srgb, var(--merchant-shadow) 16%, transparent), transparent 70%),
+    var(--t-bg);
+}
+.sf-theme-neon .sf-kit-cover-art {
+  background:
+    linear-gradient(transparent 94%, color-mix(in srgb, var(--merchant-primary) 55%, transparent) 94%) 0 0 / 100% 30px,
+    linear-gradient(90deg, transparent 94%, color-mix(in srgb, var(--merchant-primary) 55%, transparent) 94%) 0 0 / 30px 100%;
+  -webkit-mask-image: linear-gradient(to bottom, rgb(0 0 0 / .9), transparent);
+  mask-image: linear-gradient(to bottom, rgb(0 0 0 / .9), transparent);
+  opacity: .55;
+}
+.sf-theme-neon .sf-kit-logo {
+  border-radius: 9999px;
+  box-shadow: 0 0 0 3px var(--merchant-primary), 0 0 34px 6px color-mix(in srgb, var(--merchant-primary) 60%, transparent);
+}
+.sf-theme-neon .sf-kit-title {
+  background: linear-gradient(90deg, var(--t-ink), color-mix(in srgb, var(--merchant-primary) 55%, white), var(--t-ink));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--merchant-primary) 55%, transparent));
+}
+html[data-theme='light'] .sf-theme-neon .sf-kit-title {
+  background-image: linear-gradient(90deg, var(--t-ink), var(--merchant-primary), var(--t-ink));
+}
+.sf-theme-neon .sf-kit-chip,
+.sf-theme-neon .sf-kit-nav-pills .sf-kit-navitem { box-shadow: inset 0 0 0 1px var(--t-line); }
+.sf-theme-neon .sf-kit-nav-pills .sf-kit-navitem.is-active {
+  box-shadow: 0 0 0 1px var(--merchant-primary), 0 0 22px -2px color-mix(in srgb, var(--merchant-primary) 80%, transparent);
+}
+.sf-theme-neon .sf-kit-card {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: none;
+}
+.sf-theme-neon .sf-kit-card:hover,
+.sf-theme-neon .sf-kit-card:focus-within {
+  box-shadow: 0 0 0 1px var(--merchant-primary), 0 0 34px -6px color-mix(in srgb, var(--merchant-primary) 75%, transparent);
+}
+.sf-theme-neon .sf-kit-price-tag .price-text { text-shadow: 0 0 12px color-mix(in srgb, var(--merchant-primary) 70%, transparent); }
+.sf-theme-neon .sf-kit-add { box-shadow: 0 0 22px -2px color-mix(in srgb, var(--merchant-primary) 85%, transparent); }
+.sf-theme-neon .sf-kit-section-title { text-shadow: 0 0 22px color-mix(in srgb, var(--merchant-primary) 45%, transparent); }
+
+/* ── Magazine — editorial ────────────────────────────────────────────── */
+html .public-storefront.sf-theme-magazine {
+  --t-bg: #0f0e0c; --t-surface: #171512; --t-chip: #221f1b;
+  --t-ink: #f3f0ea; --t-muted: #a39d92; --t-line: #2c2924;
+  --t-display: 'El Messiri', 'Cairo', serif;
+  --t-photo: 4 / 5;
+}
+html[data-theme='light'] .public-storefront.sf-theme-magazine {
+  --t-bg: #fbfaf7; --t-surface: #ffffff; --t-chip: #f1eee8;
+  --t-ink: #111111; --t-muted: #6f6a62; --t-line: #e6e1d8;
+}
+.sf-theme-magazine .sf-kit-hero-fallback {
+  background: linear-gradient(135deg, var(--merchant-primary), var(--merchant-shadow));
+}
+.sf-theme-magazine .sf-kit-hero-kicker { color: color-mix(in srgb, var(--merchant-primary) 55%, white); }
+.sf-theme-magazine .sf-kit-logo { border-radius: 9999px; box-shadow: 0 0 0 2px rgb(255 255 255 / .6); }
+/* The hero already carries the first picture; a carousel under it repeats it. */
+.public-storefront.sf-theme-magazine .public-carousel { display: none; }
+.sf-theme-magazine .sf-kit-card { background: transparent; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
+.sf-theme-magazine .sf-kit-card .sf-kit-photo { border-radius: 1rem; }
+.sf-theme-magazine .sf-kit-card-body { padding: .8rem 0 0; }
+.sf-theme-magazine .sf-kit-price-tag,
+.sf-theme-magazine .sf-kit-card-was { display: none; }
+.sf-theme-magazine .sf-kit-body-price { display: flex; margin-top: .15rem; }
+.sf-theme-magazine .sf-kit-card .sf-kit-add {
+  top: .6rem; bottom: auto; inset-inline-end: .6rem;
+  width: 2.25rem; height: 2.25rem; border-radius: 9999px;
+  color: #111; background: rgb(255 255 255 / .92); box-shadow: 0 8px 18px -8px rgb(0 0 0 / .5);
+}
+.sf-theme-magazine .sf-kit-section-head { border-top: 2px solid var(--t-ink); padding-top: 1rem; }
+.sf-theme-magazine .sf-kit-section-rule { background: none; }
+
+/* ── Street — neo-brutalism ──────────────────────────────────────────── */
+html .public-storefront.sf-theme-street {
+  --t-bg: #131313; --t-surface: #1d1d1d; --t-chip: #1d1d1d;
+  --t-ink: #f5f5f5; --t-muted: #c4c4c4; --t-line: #f5f5f5;
+  --t-display: 'Lalezar', 'Cairo', sans-serif;
+  --st-border: 3px solid var(--t-line);
+  --st-shadow: 5px 5px 0 var(--t-line);
+}
+html[data-theme='light'] .public-storefront.sf-theme-street {
+  --t-bg: #fff4d6; --t-surface: #ffffff; --t-chip: #ffffff;
+  --t-ink: #111111; --t-muted: #3f3f3f; --t-line: #111111;
+}
+.sf-theme-street .sf-kit-split-card {
+  padding: 1.1rem;
+  border: var(--st-border);
+  border-radius: 1.4rem;
+  box-shadow: var(--st-shadow);
+  background: linear-gradient(135deg, var(--merchant-primary), var(--merchant-shadow));
+}
+.sf-theme-street .sf-kit-split-card .sf-kit-title { color: #fff; text-shadow: 3px 3px 0 #111; font-weight: 400; }
+.sf-theme-street .sf-kit-split-card .sf-kit-kicker,
+.sf-theme-street .sf-kit-split-card .sf-kit-desc { color: rgb(255 255 255 / .9); }
+.sf-theme-street .sf-kit-logo { border: var(--st-border); border-color: #111; border-radius: 1.1rem; box-shadow: 4px 4px 0 #111; }
+.sf-theme-street .sf-kit-chip,
+.sf-theme-street .sf-kit-nav-pills .sf-kit-navitem {
+  background: var(--t-surface);
+  color: var(--t-ink);
+  box-shadow: inset 0 0 0 2px var(--t-line), 3px 3px 0 var(--t-line);
+}
+.sf-theme-street .sf-kit-nav-pills .sf-kit-navitem { font-family: var(--t-display); font-weight: 400; font-size: 1rem; }
+.sf-theme-street .sf-kit-nav-pills .sf-kit-navitem.is-active {
+  color: #fff;
+  background: var(--merchant-primary);
+  box-shadow: inset 0 0 0 2px var(--t-line), 3px 3px 0 var(--t-line);
+}
+.sf-theme-street .sf-kit-section-title { font-weight: 400; font-size: 2.1rem; }
+.sf-theme-street .sf-kit-section-rule { height: 3px; background: var(--t-line); }
+.sf-theme-street .sf-kit-section-count { background: var(--t-surface); color: var(--t-ink); box-shadow: inset 0 0 0 2px var(--t-line); }
+.sf-theme-street .sf-kit-card { border: var(--st-border); box-shadow: var(--st-shadow); border-radius: 1.3rem; }
+.sf-theme-street .sf-kit-card:hover,
+.sf-theme-street .sf-kit-card:focus-within { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--t-line); }
+.sf-theme-street .sf-kit-card .sf-kit-photo { border-bottom: var(--st-border); }
+.sf-theme-street .sf-kit-item-name { font-weight: 400; font-size: 1.05rem; }
+.sf-theme-street .sf-kit-price-tag {
+  /* Bottom corner, away from the sold-out / discount badges at the top. */
+  bottom: .6rem; inset-inline-end: .6rem; inset-inline-start: auto;
+  background: #ffe14d; color: #111; border: 2px solid #111; box-shadow: 2px 2px 0 #111;
+  transform: rotate(-5deg); backdrop-filter: none;
+}
+html[data-theme='dark'] .sf-theme-street .sf-kit-price-tag { background: #ffe14d; }
+.sf-theme-street .sf-kit-price-tag .price-text { color: #111; }
+.sf-theme-street .sf-kit-add { border: 2px solid #111; border-radius: .75rem; box-shadow: 3px 3px 0 #111; }
+.sf-theme-street .sf-kit-discount { border: 2px solid #111; }
+
+/* ── Garden — organic, soft and round ────────────────────────────────── */
+html .public-storefront.sf-theme-garden {
+  --t-bg: #0e140f; --t-surface: #162018; --t-chip: #1f2b21;
+  --t-ink: #e8f1e4; --t-muted: #9fb098; --t-line: #26332a;
+  --t-page:
+    radial-gradient(640px 420px at 0% 0%, color-mix(in srgb, var(--merchant-primary) 16%, transparent), transparent 70%),
+    radial-gradient(560px 420px at 100% 40%, rgb(132 204 22 / .07), transparent 70%),
+    var(--t-bg);
+}
+html[data-theme='light'] .public-storefront.sf-theme-garden {
+  --t-bg: #eef3ea; --t-surface: #ffffff; --t-chip: #e2ebdc;
+  --t-ink: #1e2a1b; --t-muted: #66755f; --t-line: #d6e2cf;
+  --t-page:
+    radial-gradient(640px 420px at 0% 0%, color-mix(in srgb, var(--merchant-primary) 14%, transparent), transparent 70%),
+    radial-gradient(560px 420px at 100% 40%, rgb(132 204 22 / .12), transparent 70%),
+    var(--t-bg);
+}
+.sf-theme-garden .sf-kit-logo {
+  border-radius: 58% 42% 55% 45% / 45% 55% 45% 55%;
+  border: 4px solid var(--t-surface);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--merchant-primary) 40%, transparent), 0 20px 34px -16px rgb(0 0 0 / .45);
+}
+.sf-theme-garden .sf-kit-flourish {
+  width: 4.5rem;
+  height: .6rem;
+  background:
+    radial-gradient(ellipse 45% 50% at 50% 50%, var(--t-accent) 60%, transparent 64%) 0 50% / 1.5rem .6rem repeat-x;
+  opacity: .8;
+}
+.sf-theme-garden .sf-kit-section-head { flex-direction: column; align-items: center; gap: .5rem; }
+.sf-theme-garden .sf-kit-section-rule { flex: none; width: 3rem; height: 3px; border-radius: 9999px; background: var(--t-accent); margin: 0; }
+.sf-theme-garden .sf-kit-section-count { display: none; }
+.sf-theme-garden .sf-kit-card { border: 0; border-radius: 2rem; text-align: center; }
+.sf-theme-garden .sf-kit-card .sf-kit-photo {
+  width: 78%;
+  margin: 1rem auto 0;
+  border-radius: 9999px;
+  border: 5px solid var(--t-chip);
+}
+.sf-theme-garden .sf-kit-card-body { padding: .8rem .9rem 3.8rem; align-items: center; }
+.sf-theme-garden .sf-kit-price-tag,
+.sf-theme-garden .sf-kit-card-was { display: none; }
+.sf-theme-garden .sf-kit-body-price { display: flex; justify-content: center; margin-top: .2rem; }
+.sf-theme-garden .sf-kit-card .sf-kit-add {
+  inset-inline-end: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: .9rem;
+  border-radius: 9999px;
+}
+
+/* ── Boutique — black and white, tall product photos ─────────────────── */
+html .public-storefront.sf-theme-boutique {
+  --t-bg: #09090b; --t-surface: #09090b; --t-chip: #18181b;
+  --t-ink: #fafafa; --t-muted: #a1a1aa; --t-line: #27272a;
+  --t-display: 'Noto Kufi Arabic', 'Cairo', sans-serif;
+  --t-photo: 3 / 4;
+}
+html[data-theme='light'] .public-storefront.sf-theme-boutique {
+  --t-bg: #ffffff; --t-surface: #ffffff; --t-chip: #f4f4f5;
+  --t-ink: #0a0a0a; --t-muted: #71717a; --t-line: #e4e4e7;
+}
+.sf-theme-boutique .sf-kit-header { border-bottom: 1px solid var(--t-line); }
+.sf-theme-boutique .sf-kit-logo { border-radius: 9999px; box-shadow: 0 0 0 1px var(--t-line); }
+.sf-theme-boutique .sf-kit-kicker { color: var(--t-muted); letter-spacing: .02em; }
+.sf-theme-boutique .sf-kit-title { font-weight: 500; }
+.sf-theme-boutique .sf-kit-flourish { width: 3rem; height: 1px; background: var(--t-ink); }
+.sf-theme-boutique .sf-kit-section-head { justify-content: center; }
+.sf-theme-boutique .sf-kit-section-title { font-weight: 500; }
+.sf-theme-boutique .sf-kit-section-rule,
+.sf-theme-boutique .sf-kit-section-count { display: none; }
+.sf-theme-boutique .sf-kit-card { background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+.sf-theme-boutique .sf-kit-card:hover,
+.sf-theme-boutique .sf-kit-card:focus-within { transform: none; }
+.sf-theme-boutique .sf-kit-card .sf-kit-photo { border-radius: .35rem; }
+.sf-theme-boutique .sf-kit-card-body { padding: .75rem 0 0; }
+.sf-theme-boutique .sf-kit-item-name { font-weight: 500; }
+.sf-theme-boutique .sf-kit-price-tag,
+.sf-theme-boutique .sf-kit-card-was { display: none; }
+.sf-theme-boutique .sf-kit-body-price { display: flex; }
+.sf-theme-boutique .sf-kit-card .sf-kit-add {
+  top: .6rem; bottom: auto; inset-inline-end: .6rem;
+  width: 2.2rem; height: 2.2rem; border-radius: 9999px;
+  color: #0a0a0a; background: #fff; box-shadow: 0 6px 16px -6px rgb(0 0 0 / .45);
+}

@@ -7,7 +7,8 @@ import { MerchantProfileContext } from './MerchantProfileContext'
  * Loads the logged-in merchant's profile once and shares it across the
  * merchant area. `save` persists to the store AND updates context state, so a
  * change on the profile page is instantly reflected in the sidebar/topbar
- * branding without a refetch.
+ * branding without a refetch. `merge` applies fields a different endpoint has
+ * already persisted.
  */
 export default function MerchantProfileProvider({ children }) {
   const { session } = useAuth()
@@ -41,9 +42,15 @@ export default function MerchantProfileProvider({ children }) {
     return updated
   }, [])
 
+  // Merge fields another endpoint already saved (the welcome-screen media has
+  // its own upload route), so the shared profile doesn't go stale.
+  const merge = useCallback((fields) => {
+    setProfile((prev) => (prev ? { ...prev, ...fields } : prev))
+  }, [])
+
   const value = useMemo(
-    () => ({ profile, loading, error, save }),
-    [profile, loading, error, save],
+    () => ({ profile, loading, error, save, merge }),
+    [profile, loading, error, save, merge],
   )
 
   return (

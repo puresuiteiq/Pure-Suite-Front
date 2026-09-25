@@ -108,7 +108,7 @@ export default function CartPanel({
                       )}
                       {item.quantity > 1 && (
                         <span className="text-[11px] tabular-nums text-slate-500 dark:text-slate-400">
-                          {t('public.cart.each', { price: formatCurrency(item.price) })}
+                          {t('public.cart.each', { price: formatCurrency(item.price, item.currency) })}
                         </span>
                       )}
                     </div>
@@ -119,10 +119,10 @@ export default function CartPanel({
                         <span className="rounded bg-red-100 px-1 py-0.5 text-[10px] font-bold text-red-600 dark:bg-red-500/15 dark:text-red-300">
                           -{discountPct}%
                         </span>
-                        <Price value={item.originalPrice * item.quantity} className="text-[11px] text-slate-500 line-through tabular-nums dark:text-slate-400" />
+                        <Price value={item.originalPrice * item.quantity} currency={item.currency} className="text-[11px] text-slate-500 line-through tabular-nums dark:text-slate-400" />
                       </div>
                     )}
-                    <Price value={item.price * item.quantity} className="price-text text-sm font-bold tabular-nums" />
+                    <Price value={item.price * item.quantity} currency={item.currency} className="price-text text-sm font-bold tabular-nums" />
                   </div>
                 </div>
 
@@ -207,9 +207,9 @@ export default function CartPanel({
                       {product.name}
                     </p>
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      <Price value={product.price} className="price-text text-xs font-bold tabular-nums" />
+                      <Price value={product.price} currency={product.currency} className="price-text text-xs font-bold tabular-nums" />
                       {hasDiscount && (
-                        <Price value={product.originalPrice} className="text-[11px] text-slate-500 line-through tabular-nums dark:text-slate-400" />
+                        <Price value={product.originalPrice} currency={product.currency} className="text-[11px] text-slate-500 line-through tabular-nums dark:text-slate-400" />
                       )}
                     </div>
                   </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '../components/ui/PageHeader'
@@ -15,6 +15,21 @@ import { translateApiError } from '../utils/apiError'
 
 /** The app's card surface — same treatment as StatCard and the dashboards. */
 const CARD = 'luxury-glass luxury-card rounded-3xl p-6'
+const MENU_PAGE_SIZE = 10
+
+function mergeMenuCategories(current, next) {
+  const byId = new Map(current.map((category) => [category.id, { ...category, items: [...category.items] }]))
+  for (const category of next) {
+    if (!byId.has(category.id)) {
+      byId.set(category.id, { ...category, items: [...category.items] })
+      continue
+    }
+    const existing = byId.get(category.id)
+    const seen = new Set(existing.items.map((item) => item.id))
+    existing.items.push(...category.items.filter((item) => !seen.has(item.id)))
+  }
+  return [...byId.values()]
+}
 
 export default function MerchantDetails() {
   const { t } = useTranslation()
@@ -35,18 +50,77 @@ export default function MerchantDetails() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [credentials, setCredentials] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [loadingMoreMenu, setLoadingMoreMenu] = useState(false)
+  const menuLoaderRef = useRef(null)
+  const loadingMoreMenuRef = useRef(false)
 
   useEffect(() => {
     let active = true
     merchantsService
-      .get(merchantId)
-      .then((result) => active && setData(result))
+      .get(merchantId, { menu: false })
+      .then(async (result) => {
+        if (!active) return
+        setData(result)
+        setLoading(false)
+        if (!result.menuPage?.hasMore) return
+        setLoadingMoreMenu(true)
+        try {
+          const menuResult = await merchantsService.get(merchantId, {
+            menuLimit: MENU_PAGE_SIZE,
+            menuOffset: 0,
+          })
+          if (!active) return
+          setData((prev) => ({
+            ...prev,
+            categories: mergeMenuCategories(prev.categories, menuResult.categories ?? []),
+            menuPage: menuResult.menuPage ?? prev.menuPage,
+          }))
+        } catch (err) {
+          if (active) setError(err)
+        } finally {
+          if (active) setLoadingMoreMenu(false)
+        }
+      })
       .catch((err) => active && setError(err))
       .finally(() => active && setLoading(false))
     return () => {
       active = false
     }
   }, [merchantId])
+
+  const loadMoreMenu = useCallback(async () => {
+    if (!data?.menuPage?.hasMore || loadingMoreMenuRef.current) return
+    loadingMoreMenuRef.current = true
+    setLoadingMoreMenu(true)
+    try {
+      const result = await merchantsService.get(merchantId, {
+        menuLimit: MENU_PAGE_SIZE,
+        menuOffset: data.categories.reduce((count, category) => count + category.items.length, 0),
+      })
+      setData((prev) => ({
+        ...prev,
+        categories: mergeMenuCategories(prev.categories, result.categories ?? []),
+        menuPage: result.menuPage ?? prev.menuPage,
+      }))
+    } catch (err) {
+      setError(err)
+    } finally {
+      loadingMoreMenuRef.current = false
+      setLoadingMoreMenu(false)
+    }
+  }, [data, merchantId])
+
+  useEffect(() => {
+    if (!menuLoaderRef.current || !data?.menuPage?.hasMore || loadingMoreMenu) return undefined
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) loadMoreMenu()
+      },
+      { rootMargin: '900px 0px' },
+    )
+    observer.observe(menuLoaderRef.current)
+    return () => observer.disconnect()
+  }, [data?.menuPage?.hasMore, loadMoreMenu, loadingMoreMenu])
 
   useEffect(() => {
     if (!copied) return undefined
@@ -70,16 +144,22 @@ export default function MerchantDetails() {
   }
 
   const renew = async (date) => {
-    const { subscriptionExpiresAt } = await merchantsService.renew(merchantId, date)
-    setData((prev) => ({ ...prev, merchant: { ...prev.merchant, subscriptionExpiresAt } }))
+    const { subscriptionExpiresAt, status } = await merchantsService.renew(merchantId, date)
+    setData((prev) => ({
+      ...prev,
+      merchant: { ...prev.merchant, subscriptionExpiresAt, ...(status ? { status } : {}) },
+    }))
   }
 
   const cancelSubscription = async () => {
     setCancelling(true)
     setCancelError(null)
     try {
-      const { subscriptionExpiresAt } = await merchantsService.cancelSubscription(merchantId)
-      setData((prev) => ({ ...prev, merchant: { ...prev.merchant, subscriptionExpiresAt } }))
+      const { subscriptionExpiresAt, status } = await merchantsService.cancelSubscription(merchantId)
+      setData((prev) => ({
+        ...prev,
+        merchant: { ...prev.merchant, subscriptionExpiresAt, ...(status ? { status } : {}) },
+      }))
       setCancelOpen(false)
     } catch (err) {
       // Genuinely refusable: the API returns 409 when subscription tracking
@@ -119,7 +199,9 @@ export default function MerchantDetails() {
     return <p className="text-sm text-red-600">{translateApiError(error, t)}</p>
 
   const { merchant, categories } = data
-  const productCount = categories.reduce((count, category) => count + category.items.length, 0)
+  const loadedProductCount = categories.reduce((count, category) => count + category.items.length, 0)
+  const productCount = data.menuPage?.total ?? loadedProductCount
+  const categoryCount = data.menuPage?.categoryTotal ?? categories.length
 
   // Suggested date the renew calendar picker opens on: the plan's billing
   // period from whichever is later, today or the current expiry — same rule
@@ -148,7 +230,7 @@ export default function MerchantDetails() {
     <div>
       <PageHeader
         title={merchant.name}
-        subtitle={t('merchantDetails.summary', { categories: categories.length, products: productCount })}
+        subtitle={t('merchantDetails.summary', { categories: categoryCount, products: productCount })}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -311,7 +393,11 @@ export default function MerchantDetails() {
             </p>
           </section>
 
-          {categories.length === 0 ? (
+          {categories.length === 0 && loadingMoreMenu ? (
+            <div className={`${CARD} text-center text-sm text-slate-500`}>
+              {t('merchantDetails.loadingMore')}
+            </div>
+          ) : categories.length === 0 ? (
             <div className={`${CARD} text-center text-sm text-slate-500`}>
               {t('merchantDetails.noProducts')}
             </div>
@@ -328,7 +414,13 @@ export default function MerchantDetails() {
                       className="flex gap-3 rounded-2xl border border-slate-200 p-3 transition-colors hover:border-slate-300 sm:gap-4 dark:hover:border-white/20"
                     >
                       {item.image ? (
-                        <img src={item.image} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover sm:h-20 sm:w-20" />
+                        <img
+                          src={item.image}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="h-16 w-16 shrink-0 rounded-xl object-cover sm:h-20 sm:w-20"
+                        />
                       ) : (
                         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400 sm:h-20 sm:w-20 dark:bg-white/5">
                           <Icon name="image" />
@@ -342,7 +434,7 @@ export default function MerchantDetails() {
                             {item.name}
                           </h3>
                           <span className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-brand-700">
-                            {formatCurrency(item.price)}
+                            {formatCurrency(item.price, item.currency)}
                           </span>
                         </div>
                         {/* Clamped: these run to a paragraph each, and at full
@@ -358,6 +450,12 @@ export default function MerchantDetails() {
                 </div>
               </section>
             ))
+          )}
+          <div ref={menuLoaderRef} className="h-8" />
+          {loadingMoreMenu && (
+            <div className={`${CARD} py-4 text-center text-sm text-slate-500`}>
+              {t('merchantDetails.loadingMore')}
+            </div>
           )}
         </div>
       </div>

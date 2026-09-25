@@ -80,6 +80,7 @@ export default function MerchantDashboard() {
           title={t('merchantDashboard.menuQrTitle')}
           description={t('merchantDashboard.menuQrDescription')}
           downloadLabel={t('merchantDashboard.downloadQr')}
+          logoSrc={profile?.logo || null}
         />
       </AnimatedSection>
 

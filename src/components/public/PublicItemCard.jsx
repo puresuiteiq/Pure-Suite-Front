@@ -1,6 +1,7 @@
 import Price from './Price'
 import Icon from '../ui/Icon'
 import { useVerticalT } from '../../hooks/useVerticalT'
+import { focusPosition } from '../../utils/coverFocus'
 
 /**
  * Product tile: photo on top, info panel below it — per the client's
@@ -72,7 +73,7 @@ export default function PublicItemCard({ item, onOpen, onQuickAdd }) {
           margin around it, matching the reference's "framed photo" look. */}
       <div className="pointer-events-none relative m-2 aspect-[4/3] overflow-hidden rounded-2xl">
         {cover ? (
-          <img loading="lazy" decoding="async" src={cover} alt="" className={`absolute inset-0 h-full w-full object-cover object-top transition duration-500 group-hover:scale-110 ${blocked ? 'opacity-60 grayscale' : ''}`} />
+          <img loading="lazy" decoding="async" src={cover} alt="" style={{ objectPosition: focusPosition(item.coverFocus, '50% 0%') }} className={`absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-110 ${blocked ? 'opacity-60 grayscale' : ''}`} />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-100"><Icon name="image" className="h-10 w-10 text-slate-300" /></div>
         )}
@@ -87,7 +88,9 @@ export default function PublicItemCard({ item, onOpen, onQuickAdd }) {
         {/* Discount badge — below availability when both apply. */}
         {hasDiscount && (
           <span className={`absolute start-2.5 rounded-full bg-red-600/95 px-2 py-0.5 text-[11px] font-bold text-white ${status ? 'top-9' : 'top-2.5'}`}>
-            -{discountPct}%
+            {/* dir on the text, not the badge: on the badge it would also flip
+                which corner `start` means. In RTL "-20%" otherwise reads "20%-". */}
+            <bdi dir="ltr">-{discountPct}%</bdi>
           </span>
         )}
       </div>
@@ -127,9 +130,9 @@ export default function PublicItemCard({ item, onOpen, onQuickAdd }) {
             discounted price plus its struck-through original didn't fit side
             by side — the original was cut off. It now drops under instead. */}
         <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <Price value={item.price} className="price-text text-sm font-extrabold tabular-nums" />
+          <Price value={item.price} currency={item.currency} className="price-text text-sm font-extrabold tabular-nums" />
           {hasDiscount && (
-            <Price value={originalPrice} className="text-xs font-medium text-slate-400 line-through tabular-nums" />
+            <Price value={originalPrice} currency={item.currency} className="text-xs font-medium text-slate-400 line-through tabular-nums" />
           )}
         </div>
       </div>

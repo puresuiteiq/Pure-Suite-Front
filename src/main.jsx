@@ -8,18 +8,21 @@ import ThemeProvider from './context/ThemeProvider'
 import AuthProvider from './context/AuthProvider'
 import AdminAuthProvider from './context/AdminAuthProvider'
 import ToastProvider from './context/ToastProvider'
+import PlatformBrandingProvider from './context/PlatformBrandingProvider'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider>
-        <AdminAuthProvider>
-          <AuthProvider>
-            <ToastProvider>
-              <App />
-            </ToastProvider>
-          </AuthProvider>
-        </AdminAuthProvider>
+        <PlatformBrandingProvider>
+          <AdminAuthProvider>
+            <AuthProvider>
+              <ToastProvider>
+                <App />
+              </ToastProvider>
+            </AuthProvider>
+          </AdminAuthProvider>
+        </PlatformBrandingProvider>
       </ThemeProvider>
     </BrowserRouter>
   </StrictMode>,

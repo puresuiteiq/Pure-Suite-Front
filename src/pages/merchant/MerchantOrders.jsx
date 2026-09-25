@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { motion, useReducedMotion } from 'framer-motion'
 import PageHeader from '../../components/ui/PageHeader'
@@ -15,6 +15,7 @@ import { methodLabelKey } from '../../config/serviceMethods'
 const orderRef = (n) => String(n ?? '').padStart(4, '0')
 
 const METHOD_ICON = { delivery: 'send', dinein: 'store', pickup: 'cart' }
+const ORDERS_PAGE_SIZE = 10
 
 // A short "· zone" / "· table N" detail for the method chip.
 function methodDetail(order, t) {
@@ -31,6 +32,75 @@ const STATUS_STYLE = {
   cancelled: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
 }
 
+const escapeHtml = (value) =>
+  String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
+
+function printOrder(order, t) {
+  const rows = order.items
+    .map((item) => `
+      <tr>
+        <td>${escapeHtml(item.productName)}</td>
+        <td class="num">${Number(item.quantity)}</td>
+        <td class="num">${formatAmount(item.unitPrice)}</td>
+      </tr>`)
+    .join('')
+  const service =
+    order.serviceMethod
+      ? `${t(methodLabelKey(order.serviceMethod))}${methodDetail(order, t)}`
+      : ''
+  const html = `<!doctype html>
+<html dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(t('merchantOrders.orderNumber', { number: orderRef(order.orderNo) }))}</title>
+  <style>
+    @page { size: 58mm auto; margin: 3mm; }
+    * { box-sizing: border-box; }
+    body { width: 52mm; margin: 0; color: #000; font-family: Arial, Tahoma, sans-serif; font-size: 11px; line-height: 1.35; }
+    h1 { margin: 0 0 6px; text-align: center; font-size: 15px; }
+    .muted { color: #444; }
+    .row { display: flex; justify-content: space-between; gap: 8px; margin: 2px 0; }
+    .sep { border-top: 1px dashed #000; margin: 7px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: start; border-bottom: 1px dashed #000; padding-bottom: 3px; }
+    td { padding: 3px 0; vertical-align: top; }
+    .num { text-align: end; white-space: nowrap; }
+    .total { font-size: 14px; font-weight: 700; }
+    @media print { body { width: 52mm; } }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(t('merchantOrders.receiptTitle'))}</h1>
+  <div class="row"><span>${escapeHtml(t('merchantOrders.order'))}</span><strong>#${escapeHtml(orderRef(order.orderNo))}</strong></div>
+  <div class="row"><span>${escapeHtml(t('merchantOrders.date'))}</span><span>${escapeHtml(formatDateTime(order.createdAt))}</span></div>
+  ${service ? `<div class="row"><span>${escapeHtml(t('merchantOrders.method'))}</span><span>${escapeHtml(service)}</span></div>` : ''}
+  ${order.customerName ? `<div class="row"><span>${escapeHtml(t('merchantOrders.customer'))}</span><span>${escapeHtml(order.customerName)}</span></div>` : ''}
+  ${order.customerPhone ? `<div class="row"><span>${escapeHtml(t('merchantOrders.phone'))}</span><span dir="ltr">${escapeHtml(order.customerPhone)}</span></div>` : ''}
+  <div class="sep"></div>
+  <table>
+    <thead><tr><th>${escapeHtml(t('merchantOrders.item'))}</th><th class="num">${escapeHtml(t('merchantOrders.qty'))}</th><th class="num">${escapeHtml(t('merchantOrders.price'))}</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="sep"></div>
+  ${order.deliveryFee > 0 ? `<div class="row"><span>${escapeHtml(t('public.checkout.deliveryFee'))}</span><span>${formatAmount(order.deliveryFee)} ${escapeHtml(currencySuffix())}</span></div>` : ''}
+  <div class="row total"><span>${escapeHtml(t('merchantOrders.total'))}</span><span>${formatAmount(order.total)} ${escapeHtml(currencySuffix())}</span></div>
+  <div class="sep"></div>
+  <p class="muted" style="text-align:center;margin:0">${escapeHtml(t('merchantOrders.receiptThanks'))}</p>
+  <script>window.onload = () => { window.print(); setTimeout(() => window.close(), 250); }</script>
+</body>
+</html>`
+  const win = window.open('', '_blank', 'width=420,height=680')
+  if (!win) return
+  win.document.open()
+  win.document.write(html)
+  win.document.close()
+}
+
 /**
  * The merchant's order history — every order a customer placed on their
  * storefront, newest first, as a receipt card (number, items, total, customer).
@@ -38,11 +108,34 @@ const STATUS_STYLE = {
 export default function MerchantOrders() {
   const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
-  const { data: orders, setData, loading, error } = useMerchantOrders()
+  const {
+    data: orders,
+    setData,
+    loading,
+    loadingMore,
+    error,
+    total,
+    setTotal,
+    hasMore,
+    loadMore,
+  } = useMerchantOrders({ pageSize: ORDERS_PAGE_SIZE })
+  const loadMoreRef = useRef(null)
   // Which order is mid-update, so only its buttons disable. Mirrors the
   // pendingId pattern MerchantsPage uses for merchant status changes.
   const [pendingId, setPendingId] = useState(null)
   const [actionError, setActionError] = useState(null)
+
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasMore || loading || loadingMore) return undefined
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) loadMore()
+      },
+      { rootMargin: '320px 0px' },
+    )
+    observer.observe(loadMoreRef.current)
+    return () => observer.disconnect()
+  }, [hasMore, loadMore, loading, loadingMore])
 
   const changeStatus = async (orderId, status) => {
     setPendingId(orderId)
@@ -61,6 +154,21 @@ export default function MerchantOrders() {
     }
   }
 
+  const deleteOrder = async (orderId) => {
+    if (!window.confirm(t('merchantOrders.deleteConfirm'))) return
+    setPendingId(orderId)
+    setActionError(null)
+    try {
+      await merchantOrdersService.delete(orderId)
+      setData((prev) => prev.filter((order) => order.id !== orderId))
+      setTotal((prev) => Math.max(0, prev - 1))
+    } catch (err) {
+      setActionError(translateApiError(err, t))
+    } finally {
+      setPendingId(null)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -68,7 +176,7 @@ export default function MerchantOrders() {
         subtitle={
           loading
             ? t('merchantOrders.loading')
-            : t('merchantOrders.subtitle', { n: orders.length })
+            : t('merchantOrders.subtitle', { n: total || orders.length })
         }
       />
 
@@ -183,31 +291,57 @@ export default function MerchantOrders() {
               {/* Actions, as their own border-t region matching the card's
                   existing rhythm. Only shown while a move is actually possible:
                   a cancelled or failed order is terminal. */}
-              {(order.status === 'pending' || order.status === 'completed') && (
-                <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-3 dark:border-white/10">
-                  {order.status === 'pending' && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-3 dark:border-white/10">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon="download"
+                  disabled={pendingId === order.id}
+                  onClick={() => printOrder(order, t)}
+                >
+                  {t('merchantOrders.print')}
+                </Button>
+                {(order.status === 'pending' || order.status === 'completed') && (
+                  <>
+                    {order.status === 'pending' && (
+                      <Button
+                        size="sm"
+                        icon="check"
+                        disabled={pendingId === order.id}
+                        onClick={() => changeStatus(order.id, 'completed')}
+                      >
+                        {t('merchantOrders.markCompleted')}
+                      </Button>
+                    )}
                     <Button
                       size="sm"
-                      icon="check"
+                      variant="secondary"
+                      icon="ban"
                       disabled={pendingId === order.id}
-                      onClick={() => changeStatus(order.id, 'completed')}
+                      onClick={() => changeStatus(order.id, 'cancelled')}
                     >
-                      {t('merchantOrders.markCompleted')}
+                      {t('merchantOrders.markCancelled')}
                     </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    icon="ban"
-                    disabled={pendingId === order.id}
-                    onClick={() => changeStatus(order.id, 'cancelled')}
-                  >
-                    {t('merchantOrders.markCancelled')}
-                  </Button>
-                </div>
-              )}
+                  </>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon="trash"
+                  disabled={pendingId === order.id}
+                  onClick={() => deleteOrder(order.id)}
+                >
+                  {t('merchantOrders.delete')}
+                </Button>
+              </div>
             </motion.article>
           ))}
+          <div ref={loadMoreRef} className="h-8 lg:col-span-2" />
+          {loadingMore && (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 text-center text-sm text-slate-500 shadow-sm lg:col-span-2 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">
+              {t('merchantOrders.loadingMore')}
+            </div>
+          )}
         </div>
       )}
     </div>

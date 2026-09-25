@@ -61,8 +61,11 @@ async function ensureCsrfToken() {
 }
 
 async function request(path, { method = 'GET', body, headers, auth = 'merchant' } = {}) {
+  // A File/Blob goes up as itself (the welcome-screen video is too big for
+  // base64 JSON); everything else is JSON.
+  const isFile = typeof Blob !== 'undefined' && body instanceof Blob
   const finalHeaders = {
-    'Content-Type': 'application/json',
+    'Content-Type': isFile ? body.type || 'application/octet-stream' : 'application/json',
     // One line here covers every endpoint, because detectLanguage is mounted
     // app-wide. Per-service injection would be a dozen edits that drift.
     'Accept-Language': activeLanguage(),
@@ -80,7 +83,7 @@ async function request(path, { method = 'GET', body, headers, auth = 'merchant' 
       method,
       credentials: 'include', // send/receive the httpOnly auth cookies
       headers: finalHeaders,
-      body: body ? JSON.stringify(body) : undefined,
+      body: isFile ? body : body ? JSON.stringify(body) : undefined,
     })
   } catch {
     // A network-level failure (fetch throws TypeError "Failed to fetch") almost
@@ -142,5 +145,6 @@ export const apiClient = {
   post: (path, body, opts) => request(path, { ...opts, method: 'POST', body }),
   patch: (path, body, opts) =>
     request(path, { ...opts, method: 'PATCH', body }),
+  put: (path, body, opts) => request(path, { ...opts, method: 'PUT', body }),
   delete: (path, opts) => request(path, { ...opts, method: 'DELETE' }),
 }

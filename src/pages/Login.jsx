@@ -6,6 +6,7 @@ import Icon from '../components/ui/Icon'
 import { login } from '../services/loginService'
 import { useAuth } from '../hooks/useAuth'
 import { useAdminAuth } from '../hooks/useAdminAuth'
+import { usePlatformBranding } from '../hooks/usePlatformBranding'
 import logo from '../assets/picture/logo1.png'
 import { translateApiError } from '../utils/apiError'
 
@@ -27,6 +28,7 @@ export default function Login() {
     clearSession: clearMerchant,
   } = useAuth()
   const { t } = useTranslation()
+  const { branding } = usePlatformBranding()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -78,6 +80,8 @@ export default function Login() {
 
   const inputClass =
     'luxury-input w-full py-3 ps-9 text-sm placeholder:text-slate-400 focus:outline-none'
+  const platformName = branding.name || 'RestoSaaS'
+  const platformLogo = branding.logo || logo
 
   return (
     <div className="luxury-login relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
@@ -86,7 +90,7 @@ export default function Login() {
       <div className="relative w-full max-w-md">
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-1 flex h-24 w-44 items-center justify-center">
-            <img src={logo} alt="RestoSaaS" className="h-full w-full object-contain" />
+            <img src={platformLogo} alt={platformName} className="h-full w-full object-contain" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
             {t('auth.portal')}

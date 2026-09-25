@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import Icon from '../ui/Icon'
 import UserMenu from './UserMenu'
 import Modal from '../ui/Modal'
@@ -10,6 +10,7 @@ import NotificationsMenu from './NotificationsMenu'
 import LanguageSwitcher from '../ui/LanguageSwitcher'
 import ThemeToggle from '../ui/ThemeToggle'
 import { useAdminAuth } from '../../hooks/useAdminAuth'
+import { usePlatformBranding } from '../../hooks/usePlatformBranding'
 import logo from '../../assets/picture/logo1.png'
 
 /**
@@ -24,11 +25,14 @@ import logo from '../../assets/picture/logo1.png'
  */
 export default function Topbar({ onSignOut }) {
   const { session } = useAdminAuth()
+  const { branding } = usePlatformBranding()
   // The modal is mounted here rather than inside UserMenu so UserMenu stays
   // presentational, matching how sign-out is already raised out of it.
   const [passwordOpen, setPasswordOpen] = useState(false)
+  const [adminSearch, setAdminSearch] = useState('')
   const { t } = useTranslation()
-  const { pathname, state } = useLocation()
+  const { pathname, search, state } = useLocation()
+  const navigate = useNavigate()
   const showBack = pathname !== '/'
   // A merchant detail page (/merchants/:id) is reached from the merchants list,
   // so its back arrow returns there — every other drill-down goes to Overview.
@@ -39,6 +43,19 @@ export default function Topbar({ onSignOut }) {
       ? t('subscriptions.back')
       : t('merchantDetails.back')
     : t('topbar.backToOverview')
+  const platformName = branding.name || 'RestoSaaS'
+  const platformLogo = branding.logo || logo
+
+  useEffect(() => {
+    if (pathname !== '/merchants') return
+    setAdminSearch(new URLSearchParams(search).get('q') ?? '')
+  }, [pathname, search])
+
+  const handleSearch = (event) => {
+    event.preventDefault()
+    const q = adminSearch.trim()
+    navigate(q ? `/merchants?q=${encodeURIComponent(q)}` : '/merchants')
+  }
 
   return (
     <header className="sticky top-0 z-20 flex h-[4.5rem] items-center gap-2 border-b sm:gap-4 border-slate-200 bg-white/80 px-4 backdrop-blur-xl sm:px-6">
@@ -69,14 +86,14 @@ export default function Topbar({ onSignOut }) {
               the header had, and pushed the whole page sideways. */}
           <span className="brand-logo-chip flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl p-1.5 sm:h-14 sm:w-14">
             <img
-              src={logo}
-              alt="RestoSaaS"
+              src={platformLogo}
+              alt={platformName}
               className="h-full w-full object-contain motion-safe:group-hover:scale-[1.06]"
             />
           </span>
           <span className="hidden leading-tight min-[400px]:block">
             <span className="block text-sm font-semibold text-slate-900 transition-colors duration-300 group-hover:text-brand-600">
-              RestoSaaS
+              {platformName}
             </span>
             <span className="block text-xs text-slate-500">
               {t('auth.superAdmin')}
@@ -86,17 +103,19 @@ export default function Topbar({ onSignOut }) {
       )}
 
       {/* Search */}
-      <div className="relative hidden max-w-md flex-1 sm:block">
+      <form onSubmit={handleSearch} className="relative hidden max-w-md flex-1 sm:block">
         <Icon
           name="search"
           className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
         />
         <input
           type="search"
+          value={adminSearch}
+          onChange={(event) => setAdminSearch(event.target.value)}
           placeholder={t('topbar.searchPlaceholder')}
           className="w-full rounded-xl border border-slate-200/70 bg-white/60 py-2.5 pe-3 ps-9 text-sm text-slate-700 shadow-sm backdrop-blur transition-all placeholder:text-slate-400 hover:bg-white focus:border-brand-400 focus:bg-white focus:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
         />
-      </div>
+      </form>
 
       <div className="ms-auto flex items-center gap-1.5 sm:gap-3">
         <ThemeToggle />

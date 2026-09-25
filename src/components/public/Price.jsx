@@ -10,10 +10,10 @@ import { formatCurrency } from '../../utils/format'
  *
  * Styling is the caller's; this only guarantees how a price is written.
  */
-export default function Price({ value, className = '' }) {
+export default function Price({ value, currency = 'IQD', className = '' }) {
   return (
     <bdi translate="no" className={`notranslate ${className}`}>
-      {formatCurrency(value)}
+      {formatCurrency(value, currency)}
     </bdi>
   )
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PageHeader from '../components/ui/PageHeader'
@@ -31,6 +31,8 @@ const STATUS_STYLE = {
   none: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
 }
 
+const PAGE_SIZE = 10
+
 /**
  * Super Admin subscriptions view — every merchant with its plan, price, expiry
  * date and subscription status, newest-expiring first. Renew inline or open the
@@ -38,8 +40,25 @@ const STATUS_STYLE = {
  */
 export default function Subscriptions() {
   const { t } = useTranslation()
-  const { data: merchants, setData, loading, error } = useMerchants()
+  const [filter, setFilter] = useState('')
+  const {
+    data: merchants,
+    setData,
+    loading,
+    loadingMore,
+    error,
+    total,
+    hasMore,
+    loadMore,
+    subscriptionSummary,
+  } = useMerchants({
+    pageSize: PAGE_SIZE,
+    subscriptionStatus: filter,
+    sort: 'subscription',
+    includeSubscriptionSummary: true,
+  })
   const { data: plans } = usePlans()
+  const loadMoreRef = useRef(null)
   const [toRenew, setToRenew] = useState(null) // merchant with the renew picker open
   const [toCancel, setToCancel] = useState(null) // merchant with the cancel confirm open
   const [cancelling, setCancelling] = useState(false)
@@ -50,16 +69,8 @@ export default function Subscriptions() {
     [plans],
   )
 
-  // Sort: soonest-expiring first; undated merchants last.
-  const rows = useMemo(() => {
-    return [...merchants].sort((a, b) => {
-      if (!a.subscriptionExpiresAt) return 1
-      if (!b.subscriptionExpiresAt) return -1
-      return a.subscriptionExpiresAt.localeCompare(b.subscriptionExpiresAt)
-    })
-  }, [merchants])
-
   const summary = useMemo(() => {
+    if (subscriptionSummary) return subscriptionSummary
     const s = { active: 0, expiring: 0, expired: 0 }
     for (const m of merchants) {
       const st = statusOf(m.subscriptionExpiresAt).key
@@ -68,7 +79,19 @@ export default function Subscriptions() {
       else if (st === 'expired') s.expired += 1
     }
     return s
-  }, [merchants])
+  }, [merchants, subscriptionSummary])
+
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasMore || loading || loadingMore) return undefined
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) loadMore()
+      },
+      { rootMargin: '900px 0px' },
+    )
+    observer.observe(loadMoreRef.current)
+    return () => observer.disconnect()
+  }, [hasMore, loadMore, loading, loadingMore])
 
   // Suggested date the calendar picker opens on: the plan's billing period
   // from whichever is later, today or the current expiry — same rule the
@@ -84,8 +107,14 @@ export default function Subscriptions() {
   }
 
   const renew = async (date) => {
-    const { subscriptionExpiresAt } = await merchantsService.renew(toRenew.id, date)
-    setData((prev) => prev.map((m) => (m.id === toRenew.id ? { ...m, subscriptionExpiresAt } : m)))
+    const { subscriptionExpiresAt, status } = await merchantsService.renew(toRenew.id, date)
+    setData((prev) =>
+      prev.map((m) =>
+        m.id === toRenew.id
+          ? { ...m, subscriptionExpiresAt, ...(status ? { status } : {}) }
+          : m,
+      ),
+    )
   }
 
   const confirmCancel = async () => {
@@ -93,8 +122,14 @@ export default function Subscriptions() {
     setCancelling(true)
     setCancelError(null)
     try {
-      const { subscriptionExpiresAt } = await merchantsService.cancelSubscription(toCancel.id)
-      setData((prev) => prev.map((m) => (m.id === toCancel.id ? { ...m, subscriptionExpiresAt } : m)))
+      const { subscriptionExpiresAt, status } = await merchantsService.cancelSubscription(toCancel.id)
+      setData((prev) =>
+        prev.map((m) =>
+          m.id === toCancel.id
+            ? { ...m, subscriptionExpiresAt, ...(status ? { status } : {}) }
+            : m,
+        ),
+      )
       setToCancel(null)
     } catch (err) {
       // This one genuinely refuses: the API returns 409 when subscription
@@ -119,17 +154,24 @@ export default function Subscriptions() {
     <div>
       <PageHeader title={t('subscriptions.title')} subtitle={t('subscriptions.subtitle')} />
 
-      {!error && !loading && merchants.length > 0 && (
+      {!error && !loading && (merchants.length > 0 || total > 0 || subscriptionSummary) && (
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
           {[
             { key: 'active', value: summary.active, style: 'text-emerald-600' },
             { key: 'expiring', value: summary.expiring, style: 'text-amber-600' },
             { key: 'expired', value: summary.expired, style: 'text-red-600' },
           ].map((tile) => (
-            <div key={tile.key} className="luxury-glass luxury-card rounded-3xl p-5">
+            <button
+              key={tile.key}
+              type="button"
+              onClick={() => setFilter((current) => (current === tile.key ? '' : tile.key))}
+              className={`luxury-glass luxury-card rounded-3xl p-5 text-start transition hover:-translate-y-0.5 hover:border-amber-400/60 focus:outline-none focus:ring-2 focus:ring-amber-400/60 ${
+                filter === tile.key ? 'border-amber-400/70 bg-amber-400/10' : ''
+              }`}
+            >
               <p className="text-sm font-medium text-slate-500">{t(`subscriptions.summary.${tile.key}`)}</p>
               <p className={`mt-1 text-3xl font-bold tracking-tight ${tile.style}`}>{tile.value}</p>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -147,13 +189,28 @@ export default function Subscriptions() {
       {!error && !loading && merchants.length === 0 && (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
           <Icon name="store" className="mx-auto h-8 w-8 text-slate-300" />
-          <p className="mt-3 text-sm font-medium text-slate-900">{t('subscriptions.empty')}</p>
+          <p className="mt-3 text-sm font-medium text-slate-900">
+            {filter ? t('subscriptions.filteredEmpty') : t('subscriptions.empty')}
+          </p>
         </div>
       )}
 
       {!error && !loading && merchants.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {rows.map((m) => {
+        <>
+          {filter && (
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-500">
+              <span>{t('subscriptions.showingFilter', { status: t(`subscriptions.summary.${filter}`) })}</span>
+              <button
+                type="button"
+                className="font-semibold text-amber-500 hover:text-amber-400"
+                onClick={() => setFilter('')}
+              >
+                {t('subscriptions.showAll')}
+              </button>
+            </div>
+          )}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {merchants.map((m) => {
             const st = statusOf(m.subscriptionExpiresAt)
             const plan = planByName.get(m.plan)
             return (
@@ -210,7 +267,14 @@ export default function Subscriptions() {
               </article>
             )
           })}
-        </div>
+          </div>
+          <div ref={loadMoreRef} className="h-8" />
+          {loadingMore && (
+            <div className="mt-3 text-center text-sm text-slate-500">
+              {t('subscriptions.loadingMore')}
+            </div>
+          )}
+        </>
       )}
 
       <RenewSubscriptionModal

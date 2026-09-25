@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useVerticalT } from '../../hooks/useVerticalT'
 import PageHeader from '../../components/ui/PageHeader'
 import Button from '../../components/ui/Button'
@@ -11,19 +11,27 @@ import { useMenu } from '../../hooks/useMenu'
 import AnimatedSection from '../../components/ui/AnimatedSection'
 import { translateApiError } from '../../utils/apiError'
 
+const MENU_PAGE_SIZE = 10
+
 export default function MenuManagement() {
   const { t } = useVerticalT()
   const {
     categories,
     loading,
+    loadingMore,
     error,
+    totalItems,
+    hasMore,
+    loadMore,
     addCategory,
     editCategory,
     removeCategory,
     addItem,
+    getItem,
     editItem,
     removeItem,
-  } = useMenu()
+  } = useMenu({ pageSize: MENU_PAGE_SIZE })
+  const loadMoreRef = useRef(null)
 
   // { open, category } — category null = create
   const [categoryModal, setCategoryModal] = useState({ open: false, category: null })
@@ -31,8 +39,22 @@ export default function MenuManagement() {
   const [itemModal, setItemModal] = useState({ open: false, categoryId: null, item: null })
   // { open, kind, category, item, loading }
   const [confirm, setConfirm] = useState({ open: false })
+  const [itemLoadError, setItemLoadError] = useState(null)
 
-  const totalItems = categories.reduce((sum, c) => sum + c.items.length, 0)
+  const loadedItems = categories.reduce((sum, c) => sum + c.items.length, 0)
+  const menuItemsTotal = totalItems ?? loadedItems
+
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasMore || loading || loadingMore) return undefined
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) loadMore()
+      },
+      { rootMargin: '900px 0px' },
+    )
+    observer.observe(loadMoreRef.current)
+    return () => observer.disconnect()
+  }, [hasMore, loadMore, loading, loadingMore])
 
   // ---- Category handlers ----
   const submitCategory = (data) =>
@@ -45,6 +67,21 @@ export default function MenuManagement() {
     itemModal.item
       ? editItem(itemModal.categoryId, itemModal.item.id, data)
       : addItem(itemModal.categoryId, data)
+
+  const openItemEditor = async (category, item) => {
+    setItemLoadError(null)
+    try {
+      const fullItem = await getItem(item.id)
+      setItemModal({
+        open: true,
+        categoryId: category.id,
+        categoryName: category.name,
+        item: fullItem,
+      })
+    } catch (err) {
+      setItemLoadError(translateApiError(err, t))
+    }
+  }
 
   // ---- Delete confirm ----
   const runDelete = async () => {
@@ -78,7 +115,7 @@ export default function MenuManagement() {
             ? t('menu.subtitleLoading')
             : t('menu.subtitle', {
                 categories: categories.length,
-                items: totalItems,
+                items: menuItemsTotal,
               })
         }
         actions={
@@ -100,6 +137,12 @@ export default function MenuManagement() {
       {error && (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-red-600 shadow-sm">
           {t('menu.loadFailed')}
+        </div>
+      )}
+
+      {itemLoadError && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 shadow-sm">
+          {itemLoadError}
         </div>
       )}
 
@@ -140,14 +183,7 @@ export default function MenuManagement() {
                   item: null,
                 })
               }
-              onEditItem={(item) =>
-                setItemModal({
-                  open: true,
-                  categoryId: category.id,
-                  categoryName: category.name,
-                  item,
-                })
-              }
+              onEditItem={(item) => openItemEditor(category, item)}
               onDeleteItem={(item) =>
                 setConfirm({
                   open: true,
@@ -160,6 +196,12 @@ export default function MenuManagement() {
               />
             </AnimatedSection>
           ))}
+          <div ref={loadMoreRef} className="h-8" />
+          {loadingMore && (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 text-center text-sm text-slate-500 shadow-sm">
+              {t('menu.loadingMore')}
+            </div>
+          )}
         </div>
       )}
 

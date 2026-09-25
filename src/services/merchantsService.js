@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient'
+import { apiClient, resolveMediaUrl } from './apiClient'
 
 /**
  * Merchant (restaurant tenant) data access for the SUPER ADMIN. Backed by the
@@ -12,13 +12,43 @@ import { apiClient } from './apiClient'
  */
 const ADMIN = { auth: 'admin' }
 
+function withMediaUrls(result) {
+  if (!result?.categories) return result
+  return {
+    ...result,
+    merchant: result.merchant
+      ? { ...result.merchant, logo: resolveMediaUrl(result.merchant.logo) }
+      : result.merchant,
+    categories: result.categories.map((category) => ({
+      ...category,
+      items: (category.items ?? []).map((item) => ({
+        ...item,
+        image: resolveMediaUrl(item.image),
+      })),
+    })),
+  }
+}
+
 export const merchantsService = {
-  list() {
-    return apiClient.get('/merchants', ADMIN)
+  list(params) {
+    const search = new URLSearchParams()
+    if (params?.limit) search.set('limit', String(params.limit))
+    if (params?.offset) search.set('offset', String(params.offset))
+    if (params?.q) search.set('q', params.q)
+    if (params?.subscriptionStatus) search.set('subscriptionStatus', params.subscriptionStatus)
+    if (params?.sort) search.set('sort', params.sort)
+    if (params?.includeSubscriptionSummary) search.set('includeSubscriptionSummary', '1')
+    const query = search.toString()
+    return apiClient.get(`/merchants${query ? `?${query}` : ''}`, ADMIN)
   },
 
-  get(id) {
-    return apiClient.get(`/merchants/${id}`, ADMIN)
+  async get(id, params) {
+    const search = new URLSearchParams()
+    if (params?.menu === false) search.set('menu', '0')
+    if (params?.menuLimit) search.set('menuLimit', String(params.menuLimit))
+    if (params?.menuOffset) search.set('menuOffset', String(params.menuOffset))
+    const query = search.toString()
+    return withMediaUrls(await apiClient.get(`/merchants/${id}${query ? `?${query}` : ''}`, ADMIN))
   },
 
   create(data) {
@@ -45,13 +75,13 @@ export const merchantsService = {
   },
 
   // Set the subscription's new expiry date directly (from the renew
-  // calendar picker). Returns { subscriptionExpiresAt }.
+  // calendar picker). Returns { subscriptionExpiresAt, status }.
   renew(id, date) {
     return apiClient.post(`/merchants/${id}/renew`, date ? { date } : {}, ADMIN)
   },
 
   // Ends the subscription (expiry set to yesterday, so it reads as Expired).
-  // Returns { subscriptionExpiresAt }.
+  // Returns { subscriptionExpiresAt, status }.
   cancelSubscription(id) {
     return apiClient.post(`/merchants/${id}/cancel-subscription`, {}, ADMIN)
   },

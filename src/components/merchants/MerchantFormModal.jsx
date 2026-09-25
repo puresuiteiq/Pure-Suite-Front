@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
@@ -10,9 +10,11 @@ import { controlClass } from '../../utils/form'
 import { slugify } from '../../utils/slug'
 import { BUSINESS_CATEGORIES, isKnownCategory } from '../../config/businessCategories'
 import { usePlans } from '../../hooks/usePlans'
+import { merchantsService } from '../../services/merchantsService'
 import { translateApiError } from '../../utils/apiError'
 
 const FALLBACK_PLANS = ['Starter', 'Growth', 'Enterprise']
+const FALLBACK_PLAN_DAYS = 30
 
 const EMPTY = {
   name: '',
@@ -23,8 +25,25 @@ const EMPTY = {
   phone: '',
   plan: 'Starter',
   branches: 1,
+  sourceMerchantId: '',
+  copyMenu: false,
   subscriptionStartsAt: '',
   subscriptionExpiresAt: '',
+}
+
+function ymd(date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function subscriptionDatesForPlan(periodDays = FALLBACK_PLAN_DAYS) {
+  const starts = new Date()
+  starts.setHours(0, 0, 0, 0)
+  const ends = new Date(starts)
+  ends.setDate(ends.getDate() + Math.max(1, Number(periodDays) || FALLBACK_PLAN_DAYS))
+  return {
+    subscriptionStartsAt: ymd(starts),
+    subscriptionExpiresAt: ymd(ends),
+  }
 }
 
 /**
@@ -37,8 +56,11 @@ export default function MerchantFormModal({ open, onClose, onSubmit }) {
   const { t } = useTranslation()
   const { data: plans } = usePlans()
   // Active plan names, from the DB; fall back to the seeded three if unavailable.
-  const planOptions = plans.filter((p) => p.active).map((p) => p.name)
-  const planList = planOptions.length ? planOptions : FALLBACK_PLANS
+  const planList = useMemo(() => {
+    const planOptions = plans.filter((p) => p.active).map((p) => p.name)
+    return planOptions.length ? planOptions : FALLBACK_PLANS
+  }, [plans])
+  const planByName = useMemo(() => new Map(plans.map((plan) => [plan.name, plan])), [plans])
   const [form, setForm] = useState(EMPTY)
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -57,18 +79,22 @@ export default function MerchantFormModal({ open, onClose, onSubmit }) {
   // A suggestion only — the backend re-validates and resolves collisions.
   const effectiveSlug = slugEdited ? form.slug : slugify(form.name)
   const linkHost = typeof window === 'undefined' ? '' : window.location.host
-
   // Reset to a clean form each time the modal opens.
   useEffect(() => {
     if (open) {
-      setForm(EMPTY)
+      const initialPlan = planList.includes(EMPTY.plan) ? EMPTY.plan : (planList[0] ?? EMPTY.plan)
+      setForm({
+        ...EMPTY,
+        plan: initialPlan,
+        ...subscriptionDatesForPlan(planByName.get(initialPlan)?.periodDays ?? FALLBACK_PLAN_DAYS),
+      })
       setErrors({})
       setSubmitError(null)
       setSubmitting(false)
       setCreated(null)
       setSlugEdited(false)
     }
-  }, [open])
+  }, [open, planByName, planList])
 
   const update = (field) => (e) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }))
@@ -98,6 +124,8 @@ export default function MerchantFormModal({ open, onClose, onSubmit }) {
         ...form,
         plan: selectedPlan,
         slug: effectiveSlug || undefined,
+        copyMenuFromMerchantId:
+          form.copyMenu && form.sourceMerchantId ? Number(form.sourceMerchantId) : undefined,
       })
       if (result?.tempPassword) {
         setCreated(result) // show credentials instead of closing
@@ -300,24 +328,33 @@ export default function MerchantFormModal({ open, onClose, onSubmit }) {
           <FormField label={t('merchantForm.plan')} icon="star">
             <Select
               value={selectedPlan}
-              onChange={(v) => setForm((prev) => ({ ...prev, plan: v }))}
+              onChange={(v) =>
+                setForm((prev) => ({
+                  ...prev,
+                  plan: v,
+                  ...subscriptionDatesForPlan(planByName.get(v)?.periodDays ?? FALLBACK_PLAN_DAYS),
+                }))
+              }
               options={planList.map((plan) => ({
                 value: plan,
                 label: t(`plans.${plan}`, plan),
               }))}
             />
           </FormField>
-
-          <FormField label={t('merchantForm.branches')} icon="store">
-            <input
-              type="number"
-              min="1"
-              value={form.branches}
-              onChange={update('branches')}
-              className={controlClass()}
-            />
-          </FormField>
         </div>
+
+        <BranchSourceField
+          selectedId={form.sourceMerchantId}
+          copyMenu={form.copyMenu}
+          onSelect={(merchant) =>
+            setForm((prev) => ({
+              ...prev,
+              sourceMerchantId: merchant?.id ? String(merchant.id) : '',
+              copyMenu: merchant ? prev.copyMenu : false,
+            }))
+          }
+          onCopyMenuChange={(copyMenu) => setForm((prev) => ({ ...prev, copyMenu }))}
+        />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField label={t('merchantForm.subscriptionStarts')} icon="clock">
@@ -335,6 +372,127 @@ export default function MerchantFormModal({ open, onClose, onSubmit }) {
         </div>
       </form>
     </Modal>
+  )
+}
+
+function BranchSourceField({ selectedId, copyMenu, onSelect, onCopyMenuChange }) {
+  const { t } = useTranslation()
+  const [query, setQuery] = useState('')
+  const [options, setOptions] = useState([])
+  const [loading, setLoading] = useState(false)
+  const selected = options.find((merchant) => String(merchant.id) === String(selectedId))
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    const timer = window.setTimeout(() => {
+      merchantsService
+        .list({ limit: 10, offset: 0, q: query.trim() })
+        .then((result) => {
+          if (!active) return
+          setOptions(result.items ?? [])
+        })
+        .catch(() => {
+          if (active) setOptions([])
+        })
+        .finally(() => {
+          if (active) setLoading(false)
+        })
+    }, 200)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [query])
+
+  return (
+    <div className="rounded-2xl border border-slate-200/70 bg-white/45 p-4 dark:border-white/10 dark:bg-slate-950/20">
+      <div className="flex items-start gap-3">
+        <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300">
+          <Icon name="store" className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+            {t('merchantForm.branchSource')}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            {t('merchantForm.branchSourceHint')}
+          </p>
+        </div>
+      </div>
+
+      <div className="relative mt-3">
+        <Icon
+          name="search"
+          className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+        />
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t('merchantForm.branchSearchPlaceholder')}
+          className={`${controlClass()} ps-9`}
+        />
+      </div>
+
+      <div className="mt-3 max-h-44 overflow-y-auto rounded-xl border border-slate-200/70 bg-white/70 p-1.5 dark:border-white/10 dark:bg-slate-900/50">
+        {loading && (
+          <p className="px-3 py-2 text-sm text-slate-500">{t('merchantForm.branchSearching')}</p>
+        )}
+        {!loading && options.length === 0 && (
+          <p className="px-3 py-2 text-sm text-slate-500">{t('merchantForm.branchNoResults')}</p>
+        )}
+        {!loading &&
+          options.map((merchant) => {
+            const isSelected = String(merchant.id) === String(selectedId)
+            return (
+              <button
+                key={merchant.id}
+                type="button"
+                onClick={() => onSelect(isSelected ? null : merchant)}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-start text-sm transition-colors ${
+                  isSelected
+                    ? 'bg-slate-100 font-semibold text-slate-900 dark:bg-white/10 dark:text-white'
+                    : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5'
+                }`}
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500 dark:bg-white/10 dark:text-slate-300">
+                  #{merchant.id}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{merchant.name}</span>
+                  <span className="block truncate text-xs font-normal text-slate-400">
+                    {merchant.owner || merchant.phone || merchant.email || t(`plans.${merchant.plan}`, merchant.plan)}
+                  </span>
+                </span>
+                {isSelected && <Icon name="check" className="accent-text h-4 w-4 shrink-0" />}
+              </button>
+            )
+          })}
+      </div>
+
+      {selectedId && (
+        <label className="mt-3 flex items-start gap-3 rounded-xl bg-slate-50 px-3 py-2.5 text-sm dark:bg-white/5">
+          <input
+            type="checkbox"
+            checked={copyMenu}
+            onChange={(event) => onCopyMenuChange(event.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+          />
+          <span>
+            <span className="block font-semibold text-slate-800 dark:text-slate-100">
+              {t('merchantForm.copyMenuFromBranch')}
+            </span>
+            <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+              {selected
+                ? t('merchantForm.copyMenuFromBranchHint', { name: selected.name })
+                : t('merchantForm.copyMenuFromBranchHintGeneric')}
+            </span>
+          </span>
+        </label>
+      )}
+    </div>
   )
 }
 

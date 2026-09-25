@@ -263,11 +263,11 @@ export default function ProductDetailSheet({ item, available, merchantId, onClos
               <div className="shrink-0 text-end leading-tight">
                 {hasDiscount && (
                   <div className="mb-0.5 flex items-center justify-end gap-1.5">
-                    <Price value={originalPrice} className="text-xs font-medium text-slate-400 line-through" />
+                    <Price value={originalPrice} currency={item.currency} className="text-xs font-medium text-slate-400 line-through" />
                     <span className="rounded-md bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-600 dark:bg-red-500/15 dark:text-red-300">-{discountPct}%</span>
                   </div>
                 )}
-                <Price value={displayedPrice} className="price-text whitespace-nowrap text-2xl font-extrabold tracking-tight" />
+                <Price value={displayedPrice} currency={item.currency} className="price-text whitespace-nowrap text-2xl font-extrabold tracking-tight" />
               </div>
             )}
           </div>
@@ -322,7 +322,7 @@ export default function ProductDetailSheet({ item, available, merchantId, onClos
                     }`}
                   >
                     <span className={`font-bold ${selected ? 'text-white' : 'text-slate-900 dark:text-white'}`}>{variant.value}</span>
-                    <Price value={variant.price} className={`text-xs font-semibold ${selected ? 'text-white/85' : 'text-slate-500 dark:text-slate-400'}`} />
+                    <Price value={variant.price} currency={item.currency} className={`text-xs font-semibold ${selected ? 'text-white/85' : 'text-slate-500 dark:text-slate-400'}`} />
                   </button>
                 )
               })}
@@ -438,6 +438,7 @@ export default function ProductDetailSheet({ item, available, merchantId, onClos
                   <span aria-hidden="true" className="hidden opacity-60 sm:inline">·</span>
                   <Price
                     value={Number(displayedPrice) * selectedQuantity}
+                    currency={item.currency}
                     className="whitespace-nowrap text-xs font-semibold tabular-nums opacity-90 sm:text-base sm:font-bold sm:opacity-100"
                   />
                 </span>

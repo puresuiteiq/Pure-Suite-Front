@@ -6,6 +6,7 @@ import PageHeader from '../components/ui/PageHeader'
 import Button from '../components/ui/Button'
 import Icon from '../components/ui/Icon'
 import { adminAppearanceService } from '../services/adminAppearanceService'
+import { usePlatformBranding } from '../hooks/usePlatformBranding'
 import { translateApiError } from '../utils/apiError'
 import { fileToDataUrl, MAX_DIMENSION } from '../utils/image'
 import {
@@ -28,6 +29,7 @@ const DEFAULT_PLATFORM_NAME_COLOR = '#64748b'
  */
 export default function Appearance() {
   const { t } = useTranslation()
+  const { setBranding } = usePlatformBranding()
   const [primary, setPrimary] = useState(DEFAULT_ADMIN_ACCENT)
   const [shadow, setShadow] = useState(DEFAULT_ADMIN_SHADOW)
   const [publicBrandLogo, setPublicBrandLogo] = useState(null)
@@ -35,6 +37,7 @@ export default function Appearance() {
   const [publicBrandName, setPublicBrandName] = useState('')
   const [publicPoweredByColor, setPublicPoweredByColor] = useState(null)
   const [publicBrandNameColor, setPublicBrandNameColor] = useState(null)
+  const [publicContactWhatsapp, setPublicContactWhatsapp] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -52,6 +55,7 @@ export default function Appearance() {
         setPublicBrandName(a.publicBrandName || '')
         setPublicPoweredByColor(a.publicPoweredByColor || null)
         setPublicBrandNameColor(a.publicBrandNameColor || null)
+        setPublicContactWhatsapp(a.publicContactWhatsapp || '')
       })
       .catch((err) => setError(err))
       .finally(() => setLoading(false))
@@ -84,6 +88,7 @@ export default function Appearance() {
         publicBrandName,
         publicPoweredByColor,
         publicBrandNameColor,
+        publicContactWhatsapp,
       })
       const p = a.accentColor || DEFAULT_ADMIN_ACCENT
       const s = a.accentShadow || DEFAULT_ADMIN_SHADOW
@@ -94,6 +99,15 @@ export default function Appearance() {
       setPublicBrandName(a.publicBrandName || '')
       setPublicPoweredByColor(a.publicPoweredByColor || null)
       setPublicBrandNameColor(a.publicBrandNameColor || null)
+      setPublicContactWhatsapp(a.publicContactWhatsapp || '')
+      setBranding({
+        logo: a.publicBrandLogo || null,
+        poweredByText: a.publicPoweredByText || null,
+        name: a.publicBrandName || null,
+        poweredByColor: a.publicPoweredByColor || null,
+        nameColor: a.publicBrandNameColor || null,
+        whatsapp: a.publicContactWhatsapp || null,
+      })
       applyAccentVars(p, s)
       setSaved(true)
     } catch (err) {
@@ -241,6 +255,25 @@ export default function Appearance() {
               onColorChange={setPublicBrandNameColor}
             />
           </div>
+
+          {/* The number behind "Tap here" in the "Designed by …" credit on
+              every storefront welcome screen. Blank = the credit shows alone. */}
+          <label className="mt-4 block rounded-2xl border border-slate-200/70 bg-white/45 p-4 dark:border-white/10 dark:bg-slate-950/20">
+            <span className="profile-label">{t('appearance.contactWhatsappLabel')}</span>
+            <div className="relative mt-3">
+              <Icon name="phone" className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+              <input
+                type="tel"
+                dir="ltr"
+                value={publicContactWhatsapp}
+                onChange={(event) => setPublicContactWhatsapp(event.target.value)}
+                placeholder="+964 750 000 0000"
+                maxLength={40}
+                className="w-full rounded-xl border border-slate-200/80 bg-white/80 py-2.5 pe-4 ps-10 text-sm font-semibold normal-case tracking-normal text-slate-900 shadow-sm outline-none transition-all duration-200 placeholder:font-normal placeholder:text-slate-400 focus:border-[color:var(--merchant-primary)] focus:bg-white focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--merchant-primary)_16%,transparent)] dark:border-white/10 dark:bg-slate-950/40 dark:text-white dark:focus:bg-slate-950/60"
+              />
+            </div>
+            <p className="mt-2 text-xs normal-case tracking-normal text-slate-400">{t('appearance.contactWhatsappHint')}</p>
+          </label>
 
           {/* Always shows a logo — the custom one, or the platform default —
               instead of only appearing once a custom logo exists, so there's

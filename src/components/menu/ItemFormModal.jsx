@@ -7,12 +7,15 @@ import Button from '../ui/Button'
 import Icon from '../ui/Icon'
 import { controlClass } from '../../utils/form'
 import TranslationFields from './TranslationFields'
+import CoverFocusEditor from './CoverFocusEditor'
+import { cardFrame } from '../../config/storefrontThemes'
 import { LANGUAGE_CODES } from '../../i18n/languages'
 import { filesToDataUrls, MAX_DIMENSION } from '../../utils/image'
 import { translateApiError } from '../../utils/apiError'
 import { uid } from '../../utils/uid'
 
 const AVAILABILITY = ['available', 'unavailable', 'out_of_stock']
+const CURRENCIES = ['IQD', 'USD']
 // Quick-fill presets per trade: a clothing shop gets sizes, an electronics shop
 // gets storage tiers. Shops with no natural preset (grocery, furniture…) fall
 // back to a plain "Add group" prompt and no quick-add chips.
@@ -29,8 +32,12 @@ const EMPTY_I18N = Object.fromEntries(LANGUAGE_CODES.map((code) => [code, '']))
 
 const EMPTY = {
   name: '', description: '', price: '', originalPrice: '',
+  currency: 'IQD',
   nameI18n: EMPTY_I18N, descriptionI18n: EMPTY_I18N,
   optionName: '', brand: '', stock: '', images: [],
+  // The cover's framing in storefront cards, and the cover it was set for:
+  // a different first photo starts from the card's default again.
+  coverFocus: null, coverFocusFor: null,
   ageMin: '', ageMax: '',
   availability: 'available',
   hasVariants: false, variants: [],
@@ -82,6 +89,7 @@ export default function ItemFormModal({
               nameI18n: { ...EMPTY_I18N, ...(item.nameI18n ?? {}) },
               descriptionI18n: { ...EMPTY_I18N, ...(item.descriptionI18n ?? {}) },
               price: String(item.price ?? ''),
+              currency: item.currency ?? 'IQD',
               originalPrice: item.originalPrice == null ? '' : String(item.originalPrice),
               optionName: item.optionName ?? '',
               brand: item.brand ?? '',
@@ -95,6 +103,9 @@ export default function ItemFormModal({
                   : item.image
                     ? [item.image]
                     : [],
+              coverFocus: item.coverFocus ?? null,
+              coverFocusFor:
+                (Array.isArray(item.images) && item.images[0]) || item.image || null,
               // Restaurants keep priced size variants; stores don't (they use one
               // price + option groups), so a store's existing priced variants are
               // folded into a plain option group below.
@@ -270,6 +281,7 @@ export default function ItemFormModal({
         nameI18n: form.nameI18n,
         descriptionI18n: form.descriptionI18n,
         price: form.hasVariants ? null : Number(form.price),
+        currency: form.currency,
         originalPrice: !isStore || form.hasVariants || form.originalPrice === '' ? null : Number(form.originalPrice),
         availability: form.availability,
         optionName: form.hasVariants ? form.optionName.trim() || undefined : undefined,
@@ -279,6 +291,7 @@ export default function ItemFormModal({
         ageMax: showsAge && form.ageMax !== '' ? Number(form.ageMax) : null,
         images: form.images,
         image: form.images[0] ?? null,
+        coverFocus: form.coverFocusFor === form.images[0] ? form.coverFocus : null,
         variants: form.hasVariants
           ? form.variants.map(({ value, price }) => ({ value: value.trim(), price: Number(price) }))
           : [],
@@ -356,6 +369,29 @@ export default function ItemFormModal({
           fallback={form.name}
           inputClassName={controlClass()}
         />
+
+        <div>
+          <span className="mb-1.5 block text-sm font-medium text-slate-700">{t('menu.currency')}</span>
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5">
+            {CURRENCIES.map((currency) => {
+              const selected = form.currency === currency
+              return (
+                <button
+                  key={currency}
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, currency }))}
+                  className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                    selected
+                      ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-slate-900'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                  }`}
+                >
+                  {t(`menu.currencies.${currency}`)}
+                </button>
+              )
+            })}
+          </div>
+        </div>
 
         {/* Price + optional discount "was" price; hidden when priced by options.
             The discount ("was" price) is a retail feature — stores only. */}
@@ -525,6 +561,20 @@ export default function ItemFormModal({
             onChange={onImageSelect}
             className="hidden"
           />
+          {/* The first photo is the card's cover: let the merchant choose
+              which part of it the card shows. */}
+          {form.images[0] && (
+            <div className="mt-3">
+              <CoverFocusEditor
+                src={form.images[0]}
+                frame={cardFrame(profile?.storefrontTheme)}
+                focus={form.coverFocusFor === form.images[0] ? form.coverFocus : null}
+                onChange={(focus) =>
+                  setForm((prev) => ({ ...prev, coverFocus: focus, coverFocusFor: prev.images[0] }))
+                }
+              />
+            </div>
+          )}
         </div>
 
         {/* Description */}

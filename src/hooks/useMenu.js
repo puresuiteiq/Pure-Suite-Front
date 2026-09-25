@@ -1,5 +1,21 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { menuService } from '../services/menuService'
+
+const DEFAULT_PAGE_SIZE = 10
+
+function mergeCategories(current, next) {
+  const byId = new Map(current.map((category) => [category.id, { ...category, items: [...category.items] }]))
+  for (const category of next) {
+    if (!byId.has(category.id)) {
+      byId.set(category.id, { ...category, items: [...category.items] })
+      continue
+    }
+    const existing = byId.get(category.id)
+    const seen = new Set(existing.items.map((item) => item.id))
+    existing.items.push(...category.items.filter((item) => !seen.has(item.id)))
+  }
+  return [...byId.values()]
+}
 
 /**
  * Loads and mutates the authenticated merchant's menu (categories + nested
@@ -8,25 +24,64 @@ import { menuService } from '../services/menuService'
  * state and returns the created/updated entity so callers can close modals on
  * success. Exposes { categories, loading, error, ...mutations }.
  */
-export function useMenu() {
+export function useMenu({ pageSize = DEFAULT_PAGE_SIZE } = {}) {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState(null)
+  const [totalItems, setTotalItems] = useState(null)
+  const [hasMore, setHasMore] = useState(false)
+  const loadingMoreRef = useRef(false)
 
   useEffect(() => {
     let active = true
     setLoading(true)
+    setError(null)
 
     menuService
-      .listMenu()
-      .then((data) => active && setCategories(data))
+      .listMenu({ limit: pageSize, offset: 0 })
+      .then((data) => {
+        if (!active) return
+        if (Array.isArray(data)) {
+          setCategories(data)
+          setTotalItems(data.reduce((sum, category) => sum + category.items.length, 0))
+          setHasMore(false)
+          return
+        }
+        setCategories(data.categories ?? [])
+        setTotalItems(data.page?.total ?? 0)
+        setHasMore(Boolean(data.page?.hasMore))
+      })
       .catch((err) => active && setError(err))
       .finally(() => active && setLoading(false))
 
     return () => {
       active = false
     }
-  }, [])
+  }, [pageSize])
+
+  const loadedItems = useCallback(
+    () => categories.reduce((sum, category) => sum + category.items.length, 0),
+    [categories],
+  )
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || loadingMoreRef.current) return
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    try {
+      const data = await menuService.listMenu({ limit: pageSize, offset: loadedItems() })
+      setCategories((prev) => mergeCategories(prev, data.categories ?? []))
+      setTotalItems(data.page?.total ?? null)
+      setHasMore(Boolean(data.page?.hasMore))
+      setError(null)
+    } catch (err) {
+      setError(err)
+    } finally {
+      loadingMoreRef.current = false
+      setLoadingMore(false)
+    }
+  }, [hasMore, loadedItems, pageSize])
 
   const addCategory = useCallback(async (data) => {
     const category = await menuService.createCategory(data)
@@ -54,6 +109,7 @@ export function useMenu() {
         c.id === categoryId ? { ...c, items: [...c.items, item] } : c,
       ),
     )
+    setTotalItems((prev) => (prev == null ? prev : prev + 1))
     return item
   }, [])
 
@@ -78,16 +134,24 @@ export function useMenu() {
           : c,
       ),
     )
+    setTotalItems((prev) => (prev == null ? prev : Math.max(0, prev - 1)))
   }, [])
+
+  const getItem = useCallback((itemId) => menuService.getItem(itemId), [])
 
   return {
     categories,
     loading,
+    loadingMore,
     error,
+    totalItems,
+    hasMore,
+    loadMore,
     addCategory,
     editCategory,
     removeCategory,
     addItem,
+    getItem,
     editItem,
     removeItem,
   }

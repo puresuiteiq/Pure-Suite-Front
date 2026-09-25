@@ -15,6 +15,7 @@ import Price from './Price'
  */
 export default function CartSummary({
   subtotal,
+  currency = 'IQD',
   itemCount = 0,
   onSend,
   canSend,
@@ -33,7 +34,7 @@ export default function CartSummary({
             </span>
           )}
         </span>
-        <Price value={subtotal} className="price-text text-xl font-bold tabular-nums" />
+        <Price value={subtotal} currency={currency} className="price-text text-xl font-bold tabular-nums" />
       </div>
 
       <button

@@ -20,6 +20,7 @@ const NETWORKS = [
   { key: 'snapchat', label: 'Snapchat' },
   { key: 'facebook', label: 'Facebook' },
   { key: 'tiktok', label: 'TikTok' },
+  { key: 'telegram', label: 'Telegram' },
 ]
 
 // The merchant-provided artwork — real logos instead of hand-drawn
@@ -50,11 +51,18 @@ function externalUrl(network, rawValue) {
     const phone = handle.replace(/[^\d]/g, '')
     return phone ? `https://wa.me/${phone}` : null
   }
+  // Telegram takes a username (t.me/name) or, for an account with a public
+  // number, the number itself (t.me/+9647…).
+  if (network === 'telegram' && /^\+[\d\s-]+$/.test(value)) {
+    const phone = value.replace(/[^\d]/g, '')
+    return phone ? `https://t.me/+${phone}` : null
+  }
   const base = {
     instagram: 'https://www.instagram.com/',
     snapchat: 'https://www.snapchat.com/add/',
     facebook: 'https://www.facebook.com/',
     tiktok: 'https://www.tiktok.com/@',
+    telegram: 'https://t.me/',
   }[network]
   return base ? `${base}${encodeURIComponent(handle)}` : null
 }
@@ -74,8 +82,22 @@ function SnapchatMark({ className = 'h-6 w-6' }) {
   )
 }
 
+// No Telegram artwork was provided either — its paper-plane mark, drawn.
+function TelegramMark({ className = 'h-6 w-6' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className}>
+      <circle cx="12" cy="12" r="12" fill="#29A9EB" />
+      <path
+        d="M5.4 11.7 16.9 7.3c.5-.2 1 .1.8.9l-2 9.3c-.1.6-.5.8-1 .5l-2.9-2.1-1.4 1.3c-.2.2-.3.3-.6.3l.2-3 5.4-4.9c.2-.2 0-.3-.3-.1l-6.7 4.2-2.9-.9c-.6-.2-.6-.6.1-.9Z"
+        fill="#ffffff"
+      />
+    </svg>
+  )
+}
+
 const VECTOR_MARKS = {
   snapchat: SnapchatMark,
+  telegram: TelegramMark,
 }
 
 /**

@@ -11,6 +11,22 @@ import { usePlans } from '../../hooks/usePlans'
 import { translateApiError } from '../../utils/apiError'
 
 const FALLBACK_PLANS = ['Starter', 'Growth', 'Enterprise']
+const FALLBACK_PLAN_DAYS = 30
+
+function ymd(date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function subscriptionDatesForPlan(periodDays = FALLBACK_PLAN_DAYS) {
+  const starts = new Date()
+  starts.setHours(0, 0, 0, 0)
+  const ends = new Date(starts)
+  ends.setDate(ends.getDate() + Math.max(1, Number(periodDays) || FALLBACK_PLAN_DAYS))
+  return {
+    subscriptionStartsAt: ymd(starts),
+    subscriptionExpiresAt: ymd(ends),
+  }
+}
 
 /**
  * Super Admin edit-merchant modal. Edits business name, owner, email, phone and
@@ -22,6 +38,7 @@ export default function MerchantEditModal({ open, onClose, onSubmit, merchant })
   const { data: plans } = usePlans()
   const planOptions = plans.filter((p) => p.active).map((p) => p.name)
   const planList = planOptions.length ? planOptions : FALLBACK_PLANS
+  const planByName = new Map(plans.map((plan) => [plan.name, plan]))
   const [form, setForm] = useState(null)
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState(null)
@@ -219,7 +236,13 @@ export default function MerchantEditModal({ open, onClose, onSubmit, merchant })
         <FormField label={t('merchantForm.plan')} icon="star">
           <Select
             value={form.plan}
-            onChange={(v) => setForm((prev) => ({ ...prev, plan: v }))}
+            onChange={(v) =>
+              setForm((prev) => ({
+                ...prev,
+                plan: v,
+                ...subscriptionDatesForPlan(planByName.get(v)?.periodDays ?? FALLBACK_PLAN_DAYS),
+              }))
+            }
             /* Keep the merchant's current plan selectable even if it's now
                inactive or was renamed away. */
             options={(planList.includes(form.plan)

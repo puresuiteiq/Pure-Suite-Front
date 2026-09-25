@@ -8,11 +8,15 @@ import Icon from '../../components/ui/Icon'
 import { useMerchantProfile } from '../../hooks/useMerchantProfile'
 import ThemeCustomization from '../../components/merchant/ThemeCustomization'
 import ServiceMethodsEditor from '../../components/merchant/ServiceMethodsEditor'
+import SplashSettings from '../../components/merchant/SplashSettings'
+import StorefrontThemePicker from '../../components/merchant/StorefrontThemePicker'
+import { normalizeStorefrontTheme } from '../../config/storefrontThemes'
 import { normalizeServiceMethods } from '../../config/serviceMethods'
 import ChangePasswordForm from '../../components/auth/ChangePasswordForm'
 import { merchantProfileService } from '../../services/merchantProfileService'
 import { fileToDataUrl, MAX_DIMENSION } from '../../utils/image'
 import { translateApiError } from '../../utils/apiError'
+import { isShortMapLink, parseMapCoordinates } from '../../utils/mapLinks'
 
 // Leaflet is a full mapping library (~150kB) used only on this one page —
 // lazy-loaded so it stays out of the bundle every other page (including the
@@ -47,6 +51,7 @@ const EMPTY_SOCIAL_LINKS = {
   snapchat: '',
   facebook: '',
   tiktok: '',
+  telegram: '',
 }
 
 export default function MerchantProfile() {
@@ -59,6 +64,7 @@ export default function MerchantProfile() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState(null)
+  const [mapLinkResolving, setMapLinkResolving] = useState(false)
 
   // Seed the editable form once the profile loads.
   useEffect(() => {
@@ -67,9 +73,11 @@ export default function MerchantProfile() {
         businessName: profile.businessName ?? '',
         phone: profile.phone ?? '',
         address: profile.address ?? '',
+        mapUrl: profile.mapUrl ?? '',
         description: profile.description ?? '',
         isOpen: profile.isOpen ?? true,
         reviewsEnabled: profile.reviewsEnabled ?? true,
+        dailyOrderNumbers: profile.dailyOrderNumbers ?? false,
         accentColor: profile.accentColor ?? DEFAULT_ACCENT,
         accentShadow: profile.accentShadow ?? DEFAULT_ACCENT_SHADOW,
         panelColor: profile.panelColor ?? DEFAULT_PANEL,
@@ -91,6 +99,9 @@ export default function MerchantProfile() {
         serviceMethods: normalizeServiceMethods(profile.serviceMethods),
         logo: profile.logo ?? null,
         workingHours: profile.workingHours ?? [],
+        splashEnabled: profile.splashEnabled ?? false,
+        splashTagline: profile.splashTagline ?? '',
+        storefrontTheme: normalizeStorefrontTheme(profile.storefrontTheme),
       })
     }
   }, [profile])
@@ -104,6 +115,51 @@ export default function MerchantProfile() {
     const timer = window.setTimeout(() => setSaved(false), 3000)
     return () => window.clearTimeout(timer)
   }, [saved])
+
+  useEffect(() => {
+    if (!form?.mapUrl?.trim()) return undefined
+    const url = form.mapUrl.trim()
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      const direct = parseMapCoordinates(url)
+      if (direct) {
+        setForm((prev) =>
+          prev
+            ? { ...prev, latitude: direct.latitude, longitude: direct.longitude }
+            : prev,
+        )
+        markDirty()
+        return
+      }
+      if (!isShortMapLink(url)) return
+
+      setMapLinkResolving(true)
+      try {
+        const resolved = await merchantProfileService.resolveMapLink(url)
+        if (cancelled) return
+        setForm((prev) =>
+          prev
+            ? {
+                ...prev,
+                latitude: resolved.latitude,
+                longitude: resolved.longitude,
+              }
+            : prev,
+        )
+        markDirty()
+      } catch {
+        // The link itself is still useful for customers even if we cannot infer
+        // coordinates for the admin preview map.
+      } finally {
+        if (!cancelled) setMapLinkResolving(false)
+      }
+    }, 500)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [form?.mapUrl])
 
   const markDirty = () => setSaved(false)
 
@@ -153,9 +209,11 @@ export default function MerchantProfile() {
         businessName: form.businessName.trim(),
         phone: form.phone.trim(),
         address: form.address.trim(),
+        mapUrl: form.mapUrl.trim(),
         description: form.description.trim(),
         isOpen: form.isOpen,
         reviewsEnabled: form.reviewsEnabled,
+        dailyOrderNumbers: form.dailyOrderNumbers,
         accentColor: form.accentColor,
         accentShadow: form.accentShadow,
         panelColor: form.panelColor,
@@ -171,6 +229,9 @@ export default function MerchantProfile() {
         serviceMethods: form.serviceMethods,
         logo: form.logo,
         workingHours: form.workingHours,
+        splashEnabled: form.splashEnabled,
+        splashTagline: form.splashTagline.trim(),
+        storefrontTheme: form.storefrontTheme,
       })
       setSaved(true)
     } catch (err) {
@@ -296,6 +357,26 @@ export default function MerchantProfile() {
               {form.reviewsEnabled ? t('profile.reviewsOn') : t('profile.reviewsOff')}
             </label>
           </div>
+
+          <div className="mt-5 flex items-center justify-between gap-4 border-t border-slate-200/70 pt-5 dark:border-white/10">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">{t('profile.dailyOrderNumbers')}</h2>
+              <p className="mt-1 text-sm text-slate-500">{t('profile.dailyOrderNumbersHint')}</p>
+            </div>
+            <label className="flex cursor-pointer items-center gap-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              <input
+                type="checkbox"
+                checked={form.dailyOrderNumbers}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, dailyOrderNumbers: e.target.checked }))
+                  markDirty()
+                }}
+                className="peer sr-only"
+              />
+              <span className="relative h-7 w-12 rounded-full bg-slate-300 shadow-inner transition-all duration-300 after:absolute after:start-1 after:top-1 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-md after:transition-transform after:duration-300 peer-checked:bg-emerald-500 peer-checked:shadow-[0_0_22px_rgba(16,185,129,.45)] peer-checked:after:translate-x-5 rtl:peer-checked:after:-translate-x-5 dark:bg-slate-800" />
+              {form.dailyOrderNumbers ? t('profile.dailyOrderNumbersOn') : t('profile.dailyOrderNumbersOff')}
+            </label>
+          </div>
         </section>
 
         {/* Business details */}
@@ -343,6 +424,23 @@ export default function MerchantProfile() {
                 placeholder={t('profile.addressPlaceholder')}
                 className={inputClass}
               />
+            </label>
+
+            <label className="block">
+              <span className="profile-label">
+                {t('profile.mapUrl')}
+              </span>
+              <input
+                type="url"
+                dir="ltr"
+                value={form.mapUrl}
+                onChange={updateField('mapUrl')}
+                placeholder={t('profile.mapUrlPlaceholder')}
+                className={inputClass}
+              />
+              <span className="mt-1.5 block text-xs leading-5 text-slate-500 dark:text-slate-400">
+                {mapLinkResolving ? t('profile.mapUrlResolving') : t('profile.mapUrlHint')}
+              </span>
             </label>
 
             {/* Exact map location — separate from the free-text address
@@ -439,7 +537,7 @@ export default function MerchantProfile() {
           </p>
         </div>
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {['instagram', 'whatsapp', 'snapchat', 'facebook', 'tiktok'].map((network) => (
+          {['instagram', 'whatsapp', 'snapchat', 'facebook', 'tiktok', 'telegram'].map((network) => (
             <label key={network} className="block">
               <span className="profile-label">{t(`profile.social.${network}`)}</span>
               <input
@@ -461,6 +559,48 @@ export default function MerchantProfile() {
           ))}
         </div>
       </section>
+
+      {/* Which design the storefront wears. Saves with the rest of the form. */}
+      <div className="mt-6">
+        <StorefrontThemePicker
+          value={form.storefrontTheme}
+          onChange={(key) => {
+            setForm((prev) => ({ ...prev, storefrontTheme: key }))
+            markDirty()
+          }}
+          accent={form.accentColor}
+          accentShadow={form.accentShadow}
+          storefrontUrl={
+            profile?.slug || profile?.merchantId
+              ? `/r/${encodeURIComponent(profile.slug || profile.merchantId)}`
+              : null
+          }
+        />
+      </div>
+
+      {/* Storefront welcome screen. Its background uploads on its own; the
+          switch and tagline save with the rest of this form. */}
+      <div className="mt-6">
+        <SplashSettings
+          enabled={form.splashEnabled}
+          tagline={form.splashTagline}
+          onEnabledChange={(value) => {
+            setForm((prev) => ({ ...prev, splashEnabled: value }))
+            markDirty()
+          }}
+          onTaglineChange={(value) => {
+            setForm((prev) => ({ ...prev, splashTagline: value }))
+            markDirty()
+          }}
+          initialMedia={profile?.splashMedia ?? null}
+          preview={{
+            logo: form.logo,
+            businessName: form.businessName,
+            accentColor: form.accentColor,
+            accentShadow: form.accentShadow,
+          }}
+        />
+      </div>
 
       <div className="mt-6">
         <ServiceMethodsEditor

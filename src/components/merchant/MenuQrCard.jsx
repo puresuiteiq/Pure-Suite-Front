@@ -4,6 +4,65 @@ import Button from '../ui/Button'
 import { storefrontUrl } from '../../config/site'
 import { usePublicSiteUrl } from '../../hooks/usePublicSiteUrl'
 
+const PREVIEW_SIZE = 192
+const EXPORT_SIZE = 1024
+const LOGO_SCALE = 0.18
+
+function roundedRect(ctx, x, y, width, height, radius) {
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.arcTo(x + width, y, x + width, y + height, radius)
+  ctx.arcTo(x + width, y + height, x, y + height, radius)
+  ctx.arcTo(x, y + height, x, y, radius)
+  ctx.arcTo(x, y, x + width, y, radius)
+  ctx.closePath()
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+async function drawLogoOnQr(sourceCanvas, logoSrc) {
+  const canvas = document.createElement('canvas')
+  canvas.width = EXPORT_SIZE
+  canvas.height = EXPORT_SIZE
+  const ctx = canvas.getContext('2d')
+  ctx.imageSmoothingEnabled = false
+  ctx.drawImage(sourceCanvas, 0, 0, EXPORT_SIZE, EXPORT_SIZE)
+
+  if (!logoSrc) return canvas
+
+  try {
+    const logo = await loadImage(logoSrc)
+    const logoSize = Math.round(EXPORT_SIZE * LOGO_SCALE)
+    const padding = Math.round(logoSize * 0.22)
+    const boxSize = logoSize + padding * 2
+    const boxX = Math.round((EXPORT_SIZE - boxSize) / 2)
+    const boxY = Math.round((EXPORT_SIZE - boxSize) / 2)
+    const logoX = Math.round((EXPORT_SIZE - logoSize) / 2)
+    const logoY = Math.round((EXPORT_SIZE - logoSize) / 2)
+
+    ctx.imageSmoothingEnabled = true
+    roundedRect(ctx, boxX, boxY, boxSize, boxSize, Math.round(boxSize * 0.18))
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+    ctx.lineWidth = Math.max(4, Math.round(EXPORT_SIZE * 0.008))
+    ctx.strokeStyle = '#ffffff'
+    ctx.stroke()
+    ctx.drawImage(logo, logoX, logoY, logoSize, logoSize)
+  } catch {
+    // If a remote logo cannot be read by canvas, still download the sharp QR.
+  }
+
+  return canvas
+}
+
 /**
  * A downloadable QR code for one merchant's public menu.
  *
@@ -19,6 +78,7 @@ export default function MenuQrCard({
   title = 'QR code',
   description = 'Let customers scan this code to open your storefront.',
   downloadLabel = 'Download PNG',
+  logoSrc = null,
 }) {
   const qrRef = useRef(null)
   const siteUrl = usePublicSiteUrl()
@@ -27,13 +87,14 @@ export default function MenuQrCard({
     [baseUrl, siteUrl, merchantId],
   )
 
-  const downloadQrCode = () => {
+  const downloadQrCode = async () => {
     const canvas = qrRef.current
     if (!canvas || !merchantId) return
 
+    const exportCanvas = await drawLogoOnQr(canvas, logoSrc)
     const link = document.createElement('a')
     link.download = `storefront-qr-${merchantId}.png`
-    link.href = canvas.toDataURL('image/png')
+    link.href = exportCanvas.toDataURL('image/png')
     link.click()
   }
 
@@ -61,16 +122,25 @@ export default function MenuQrCard({
         </div>
 
         <div className="self-center rounded-2xl bg-white p-4 shadow-[0_10px_30px_rgba(37,99,235,0.16)] ring-1 ring-slate-100">
-          <QRCodeCanvas
-            ref={qrRef}
-            value={menuUrl}
-            size={192}
-            level="H"
-            includeMargin
-            bgColor="#ffffff"
-            fgColor="#0f172a"
-            title={`QR code for ${merchantId}`}
-          />
+          <div className="relative">
+            <QRCodeCanvas
+              ref={qrRef}
+              value={menuUrl}
+              size={PREVIEW_SIZE}
+              level="H"
+              includeMargin
+              bgColor="#ffffff"
+              fgColor="#0f172a"
+              title={`QR code for ${merchantId}`}
+            />
+            {logoSrc && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white p-2 shadow-sm ring-4 ring-white">
+                  <img src={logoSrc} alt="" className="h-full w-full object-contain" crossOrigin="anonymous" />
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </section>

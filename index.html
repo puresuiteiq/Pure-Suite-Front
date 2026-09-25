@@ -12,7 +12,24 @@
     <meta name="google" content="notranslate" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RestoSaaS · Super Admin</title>
+    <!-- Link-preview ("share card") tags. Facebook, WhatsApp and Telegram read
+         only this HTML, never the app, so this block is what a shared link
+         shows. The platform's card is baked in at build time (vite.config.js
+         fills in the VITE_ placeholders); when the API serves the page it replaces
+         everything between the markers per URL, so a storefront link shows that
+         store's name, description and logo (backend pageController.js). Keep
+         the markers. -->
+    <!-- page-meta -->
+    <title>%VITE_PLATFORM_NAME%</title>
+    <meta name="description" content="%VITE_PLATFORM_DESCRIPTION%" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="%VITE_PLATFORM_NAME%" />
+    <meta property="og:title" content="%VITE_PLATFORM_NAME%" />
+    <meta property="og:description" content="%VITE_PLATFORM_DESCRIPTION%" />
+    <meta property="og:url" content="%VITE_PUBLIC_SITE_URL%" />
+    <meta property="og:image" content="%VITE_OG_IMAGE%" />
+    <meta name="twitter:card" content="summary" />
+    <!-- /page-meta -->
     <!-- index.css's font stack names Inter and Cairo, but neither was ever
          actually loaded — without this, the browser falls back to the OS's
          system font, which for Arabic script usually has only one real bold

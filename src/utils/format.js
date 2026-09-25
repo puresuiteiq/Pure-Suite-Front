@@ -1,5 +1,5 @@
 import i18n from '../i18n/config'
-import { dinarUnit, formatDinars } from './currency'
+import { currencyUnit, dinarUnit, formatDinars, formatMoney } from './currency'
 
 // The formatting rules live in currency.js, which has no imports so they can
 // be unit-tested; these wrappers only supply the active UI language.
@@ -13,6 +13,10 @@ export function currencySuffix() {
   return dinarUnit(i18n.language)
 }
 
+export function moneySuffix(currency = 'IQD') {
+  return currencyUnit(currency, i18n.language)
+}
+
 /**
  * Format a price in Iraqi dinars, e.g. 2600 -> "2,600 د.ع", with a
  * non-breaking space so the amount and unit never wrap apart.
@@ -20,8 +24,10 @@ export function currencySuffix() {
  * IQD is the only currency in the system — every stored price already IS
  * dinars, so nothing is converted here.
  */
-export function formatCurrency(value) {
-  return formatDinars(value, i18n.language)
+export function formatCurrency(value, currency = 'IQD') {
+  return currency === 'IQD'
+    ? formatDinars(value, i18n.language)
+    : formatMoney(value, currency, i18n.language)
 }
 
 // Dates follow the active language so they don't sit as left-to-right English

@@ -1,8 +1,8 @@
-import { formatDinars } from './currency'
+import { formatMoney } from './currency'
 
 // The WhatsApp message is restaurant-facing and written in Arabic, so amounts
 // use the Arabic dinar unit regardless of the customer's UI language.
-const money = (v) => formatDinars(v, 'ar')
+const money = (v, currency = 'IQD') => formatMoney(v, currency, 'ar')
 
 // Arabic labels for the service methods (the message stays fully Arabic).
 const METHOD_AR = {
@@ -35,7 +35,7 @@ export function formatOrderMessage({
       // The chosen options — priced variant + extra values (e.g. "Blue · L").
       const opts = [item.variantValue, ...Object.values(item.attributes ?? {})].filter(Boolean)
       const optsText = opts.length ? ` (${opts.join(' · ')})` : ''
-      return `• ${item.name}${optsText} (x${item.quantity}): ${money(item.price)}`
+      return `• ${item.name}${optsText} (x${item.quantity}): ${money(item.price, item.currency)}`
     })
     .join('\n')
 
@@ -57,12 +57,13 @@ export function formatOrderMessage({
   const addressLine = address ? `📍 العنوان: ${address}\n` : ''
 
   // Totals: itemise the delivery fee when there is one, else a single total.
+  const totalCurrency = cartItems.find((item) => item.currency)?.currency ?? 'IQD'
   const totals =
     deliveryFee > 0
-      ? `💵 المجموع الفرعي: ${money(subtotal)}
+      ? `💵 المجموع الفرعي: ${money(subtotal, totalCurrency)}
 🛵 أجرة التوصيل: ${money(deliveryFee)}
-💰 *الإجمالي: ${money(total)}*`
-      : `💰 *المجموع: ${money(total)}*`
+💰 *الإجمالي: ${money(total, totalCurrency)}*`
+      : `💰 *المجموع: ${money(total, totalCurrency)}*`
 
   return `*طلب جديد 🧾*
 ${orderLine}${nameLine}📱 الهاتف: ${phone}

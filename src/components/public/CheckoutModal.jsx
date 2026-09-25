@@ -38,6 +38,7 @@ export default function CheckoutModal({
   submitError,
   serviceMethods,
   subtotal = 0,
+  currency = 'IQD',
 }) {
   const { t, vertical } = useVerticalT()
   const { theme } = useTheme()
@@ -47,6 +48,7 @@ export default function CheckoutModal({
   const [notes, setNotes] = useState('')
   const [method, setMethod] = useState('')
   const [zone, setZone] = useState('')
+  const [area, setArea] = useState('')
   const [table, setTable] = useState('')
   const [error, setError] = useState(null)
 
@@ -65,9 +67,18 @@ export default function CheckoutModal({
   const zones = serviceMethods?.delivery?.zones ?? []
   const selectedZone =
     zones.find((z) => z.name === zone)?.name ?? (zones[0]?.name ?? '')
+  const selectedZoneConfig = zones.find((z) => z.name === selectedZone) ?? null
+  const areas = Array.isArray(selectedZoneConfig?.areas) ? selectedZoneConfig.areas : []
+  const selectedArea =
+    areas.find((a) => a.name === area)?.name ?? (areas[0]?.name ?? '')
+  const selectedAreaConfig = areas.find((a) => a.name === selectedArea) ?? null
+  const deliveryZoneValue =
+    selectedAreaConfig
+      ? `${selectedZoneConfig.name} / ${selectedAreaConfig.name}`
+      : selectedZone
   const deliveryFee =
     selectedMethod === 'delivery'
-      ? Number(zones.find((z) => z.name === selectedZone)?.fee ?? 0)
+      ? Number(selectedAreaConfig?.fee ?? selectedZoneConfig?.fee ?? 0)
       : 0
   const total = subtotal + deliveryFee
 
@@ -95,7 +106,7 @@ export default function CheckoutModal({
       address: needsAddress ? address.trim() : '',
       notes: notes.trim(),
       serviceMethod: hasMethods ? selectedMethod : null,
-      deliveryZone: selectedMethod === 'delivery' ? selectedZone : null,
+      deliveryZone: selectedMethod === 'delivery' ? deliveryZoneValue : null,
       tableNumber: selectedMethod === 'dinein' ? table.trim() : null,
     })
   }
@@ -202,7 +213,7 @@ export default function CheckoutModal({
                       )}
                     </div>
                     <div className="shrink-0 text-end">
-                      <Price value={item.price} className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-100" />
+                      <Price value={item.price} currency={item.currency} className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-100" />
                       <span className="ms-1 text-xs text-slate-400">×{item.quantity}</span>
                     </div>
                   </li>
@@ -219,7 +230,7 @@ export default function CheckoutModal({
                 <>
                   <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                     <span>{t('public.checkout.subtotal')}</span>
-                    <Price value={placedOrder.subtotal} className="font-semibold tabular-nums text-slate-800 dark:text-slate-100" />
+                    <Price value={placedOrder.subtotal} currency={placedOrder.currency ?? currency} className="font-semibold tabular-nums text-slate-800 dark:text-slate-100" />
                   </div>
                   <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                     <span>{t('public.checkout.deliveryFee')}</span>
@@ -229,7 +240,7 @@ export default function CheckoutModal({
               )}
               <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-2 dark:border-white/10">
                 <span className="text-base font-bold text-slate-900 dark:text-white">{t('public.cart.total')}</span>
-                <Price value={placedOrder.total} className="text-xl font-extrabold tabular-nums text-slate-900 dark:text-white" />
+                <Price value={placedOrder.total} currency={placedOrder.currency ?? currency} className="text-xl font-extrabold tabular-nums text-slate-900 dark:text-white" />
               </div>
             </div>
 
@@ -339,12 +350,30 @@ export default function CheckoutModal({
                   otherwise beat it). */}
               <Select
                 value={selectedZone}
-                onChange={setZone}
+                onChange={(next) => {
+                  setZone(next)
+                  setArea('')
+                }}
                 placeholder={t('public.checkout.chooseZone')}
                 className="checkout-zone-select"
                 options={zones.map((z) => ({
                   value: z.name,
                   label: `${z.name} · ${formatCurrency(z.fee)}`,
+                }))}
+              />
+            </Field>
+          )}
+
+          {selectedMethod === 'delivery' && areas.length > 0 && (
+            <Field label={t('public.checkout.deliveryArea')}>
+              <Select
+                value={selectedArea}
+                onChange={setArea}
+                placeholder={t('public.checkout.chooseArea')}
+                className="checkout-zone-select"
+                options={areas.map((a) => ({
+                  value: a.name,
+                  label: `${a.name} · ${formatCurrency(a.fee)}`,
                 }))}
               />
             </Field>
@@ -387,7 +416,7 @@ export default function CheckoutModal({
                         <Icon name="cart" className="h-3.5 w-3.5 opacity-60" />
                         {t('public.checkout.subtotal')}
                       </span>
-                      <Price value={subtotal} className="tabular-nums font-semibold text-slate-700 dark:text-slate-200" />
+                      <Price value={subtotal} currency={currency} className="tabular-nums font-semibold text-slate-700 dark:text-slate-200" />
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
@@ -406,7 +435,7 @@ export default function CheckoutModal({
                   <span className="text-sm font-bold text-slate-900 dark:text-white">{t('public.cart.total')}</span>
                   {/* Plain ink, not the accent: the merchant's colour on its own
                       tint (the pill behind) was 2.6:1 with the default green. */}
-                  <Price value={total} className="text-lg font-extrabold tabular-nums text-slate-900 dark:text-white" />
+                  <Price value={total} currency={currency} className="text-lg font-extrabold tabular-nums text-slate-900 dark:text-white" />
                 </div>
               </div>
             </div>

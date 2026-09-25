@@ -87,8 +87,7 @@ export default function PromoCarousel({
       return item ? { label: title || item.name, run: () => onSelect(item) } : null
     }
     if (linkType === 'category' && onSelectCategory) {
-      // An empty category has no section on the page to scroll to.
-      const category = categories.find((entry) => entry.id === linkId && entry.items.length > 0)
+      const category = categories.find((entry) => entry.id === linkId)
       return category ? { label: title || category.name, run: () => onSelectCategory(linkId) } : null
     }
     return null

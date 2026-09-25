@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient'
+import { apiClient, resolveMediaUrl } from './apiClient'
 
 /**
  * Menu management for the authenticated merchant. The merchant is derived from
@@ -7,9 +7,34 @@ import { apiClient } from './apiClient'
  *
  * For the PUBLIC storefront read, see publicService.js instead.
  */
+function withMediaUrls(data) {
+  if (Array.isArray(data)) {
+    return data.map((category) => ({
+      ...category,
+      items: (category.items ?? []).map((item) => ({ ...item, image: resolveMediaUrl(item.image) })),
+    }))
+  }
+  if (!data?.categories) return data
+  return {
+    ...data,
+    categories: data.categories.map((category) => ({
+      ...category,
+      items: (category.items ?? []).map((item) => ({ ...item, image: resolveMediaUrl(item.image) })),
+    })),
+  }
+}
+
 export const menuService = {
-  listMenu() {
-    return apiClient.get('/merchant/menu')
+  async listMenu(params) {
+    const search = new URLSearchParams()
+    if (params?.limit) search.set('limit', String(params.limit))
+    if (params?.offset) search.set('offset', String(params.offset))
+    const query = search.toString()
+    return withMediaUrls(await apiClient.get(`/merchant/menu${query ? `?${query}` : ''}`))
+  },
+
+  getItem(itemId) {
+    return apiClient.get(`/merchant/menu/items/${itemId}`)
   },
 
   // Forwards the whole object rather than picking out `name`, so a new

@@ -102,7 +102,9 @@ export default function LocationPicker({ value, onChange }) {
     if (!marker) return
     const current = marker.getLatLng()
     if (current.lat === value.latitude && current.lng === value.longitude) return
-    marker.setLatLng([value.latitude, value.longitude])
+    const next = [value.latitude, value.longitude]
+    marker.setLatLng(next)
+    mapRef.current?.setView(next, PIN_ZOOM)
   }, [value?.latitude, value?.longitude])
 
   const useCurrentLocation = () => {

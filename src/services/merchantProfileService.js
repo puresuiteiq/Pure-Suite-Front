@@ -47,6 +47,10 @@ export const merchantProfileService = {
     return withDefaults(await apiClient.patch('/merchant/profile', updates))
   },
 
+  async resolveMapLink(url) {
+    return apiClient.post('/merchant/profile/map-link/resolve', { url })
+  },
+
   /**
    * Change the signed-in merchant's own password. The merchant is derived from
    * the JWT server-side, so no id is passed.
