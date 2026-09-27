@@ -3,12 +3,12 @@ import logo from '../../assets/picture/logo1.png'
 
 /**
  * Platform attribution shown on every storefront. Rendered from platform code
- * (PublicMenu), never from merchant-supplied data — restaurants control their
+ * (PublicMenu), never from merchant-supplied data - restaurants control their
  * profile and menu, not this page's markup, so there is no setting that hides
  * it. That's what makes the branding permanent.
  *
  * The mark is the real platform logo (src/assets/picture/logo1.png). Swap that
- * import and PLATFORM_NAME here to change the branding — this is where it lives.
+ * import and PLATFORM_NAME here to change the branding - this is where it lives.
  */
 const PLATFORM_NAME = 'RestoSaaS'
 
@@ -17,7 +17,7 @@ export default function PoweredBy({ branding }) {
   const poweredBy = branding?.poweredByText || t('public.poweredBy')
   const platformName = branding?.name || PLATFORM_NAME
   const platformLogo = branding?.logo || logo
-  // Super Admin-chosen text colours (hex). Unset → the original slate tones,
+  // Super Admin-chosen text colours (hex). Unset -> the original slate tones,
   // so a platform that hasn't touched these fields looks exactly as before.
   const poweredByColor = branding?.poweredByColor || undefined
   const nameColor = branding?.nameColor || undefined
