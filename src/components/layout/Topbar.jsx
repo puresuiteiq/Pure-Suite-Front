@@ -24,7 +24,7 @@ import logo from '../../assets/picture/logo1.png'
  * trapped at header height instead of covering the viewport.
  */
 export default function Topbar({ onSignOut }) {
-  const { session } = useAdminAuth()
+  const { session, isSuperAdmin } = useAdminAuth()
   const { branding } = usePlatformBranding()
   // The modal is mounted here rather than inside UserMenu so UserMenu stays
   // presentational, matching how sign-out is already raised out of it.
@@ -33,7 +33,8 @@ export default function Topbar({ onSignOut }) {
   const { t } = useTranslation()
   const { pathname, search, state } = useLocation()
   const navigate = useNavigate()
-  const showBack = pathname !== '/'
+  // A sub-admin's home is Merchants: no "back to overview" from there.
+  const showBack = pathname !== '/' && (isSuperAdmin || pathname !== '/merchants')
   // A merchant detail page (/merchants/:id) is reached from the merchants list,
   // so its back arrow returns there — every other drill-down goes to Overview.
   const isMerchantDetail = /^\/merchants\/[^/]+$/.test(pathname)
@@ -122,12 +123,14 @@ export default function Topbar({ onSignOut }) {
 
         <LanguageSwitcher />
 
-        <NotificationsMenu />
+        {/* Platform-wide alerts: the main admin's. */}
+        {isSuperAdmin && <NotificationsMenu />}
 
         <div className="hidden h-6 w-px bg-slate-200 sm:block" />
 
         <UserMenu
           name={session?.name || 'Super Admin'}
+          roleLabel={isSuperAdmin ? t('topbar.platformOwner') : t('topbar.subAdmin')}
           email={session?.email}
           onSignOut={onSignOut}
         />

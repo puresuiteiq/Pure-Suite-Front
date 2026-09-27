@@ -9,6 +9,9 @@ import AuthProvider from './context/AuthProvider'
 import AdminAuthProvider from './context/AdminAuthProvider'
 import ToastProvider from './context/ToastProvider'
 import PlatformBrandingProvider from './context/PlatformBrandingProvider'
+import { cleanupLegacyBrowserCache } from './utils/legacyCacheCleanup'
+
+cleanupLegacyBrowserCache()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -33,6 +33,12 @@ const AUTO_ENTER_MS = 6000
 /** The "designed by" credit if the API sent no platform name (PLATFORM_NAME). */
 const DEFAULT_CREDIT_NAME = 'Pure Suite'
 
+/**
+ * Pure Suite's own WhatsApp, behind "Tap here" in the credit. The Super
+ * Admin's "Designer WhatsApp number" (Appearance) overrides it when set.
+ */
+const DEFAULT_CREDIT_WHATSAPP = '9647849880268'
+
 // Deterministic, so the screen looks the same on every visit (and every render).
 const ORBS = [
   { top: '8%', left: '18%', size: 90, delay: 0.1, drift: 18 },
@@ -135,9 +141,10 @@ function SplashContent({ profile, branding, onEnter }) {
   // platformName, not the footer's `name` — that is a footer label and can
   // read "POWERED BY".
   const creditName = branding?.platformName || DEFAULT_CREDIT_NAME
-  const creditHref = branding?.whatsapp
-    ? buildWhatsAppUrl(branding.whatsapp, t('public.splash.contactMessage', { name: businessName }))
-    : null
+  const creditHref = buildWhatsAppUrl(
+    branding?.whatsapp || DEFAULT_CREDIT_WHATSAPP,
+    t('public.splash.contactMessage', { name: businessName }),
+  )
 
   // One staggered entrance for the content column.
   const rise = (delay) =>
@@ -398,21 +405,29 @@ function SplashContent({ profile, branding, onEnter }) {
         {...rise(1.1)}
         className="relative flex shrink-0 justify-center px-6 pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-2"
       >
-        <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/40 py-1.5 pe-1.5 ps-4 text-xs text-white/80 backdrop-blur-md">
-          <span>
-            {t('public.splash.designedBy')} <bdi className="font-bold text-white">{creditName}</bdi>
+        {/* The platform's own gold, not the merchant's colour: it is the same
+            credit on every storefront. A light runs around the frame
+            (.splash-credit, index.css) so it reads as a mark, not a caption. */}
+        <span className="splash-credit relative inline-flex rounded-full p-[1.5px] shadow-[0_10px_30px_-8px_rgb(214_168_79_/_0.55)]">
+          <span className="relative inline-flex items-center gap-2.5 rounded-full bg-[#0d0b08]/90 py-1.5 pe-1.5 ps-4 text-xs text-white/75 backdrop-blur-md sm:text-sm">
+            <span aria-hidden="true" className="splash-credit-star text-[#f7df9a]">✦</span>
+            <span className="whitespace-nowrap">
+              {t('public.splash.designedBy')}{' '}
+              <bdi className="bg-[linear-gradient(90deg,#f7df9a,#d6a84f_55%,#f7df9a)] bg-clip-text font-extrabold text-transparent">
+                {creditName}
+              </bdi>
+            </span>
+            {creditHref && (
+              <a
+                href={creditHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="splash-credit-cta relative overflow-hidden whitespace-nowrap rounded-full bg-[linear-gradient(135deg,#f7df9a,#d6a84f_55%,#a8782a)] px-3.5 py-1.5 font-extrabold text-[#2a1d0a] shadow-[0_4px_14px_-4px_rgb(214_168_79_/_0.8)] transition-transform hover:scale-105 active:scale-95"
+              >
+                {t('public.splash.contactCta')}
+              </a>
+            )}
           </span>
-          {creditHref && (
-            <a
-              href={creditHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full px-3 py-1 font-bold text-white transition-transform hover:scale-105"
-              style={{ background: 'linear-gradient(135deg, var(--merchant-primary), var(--merchant-shadow))' }}
-            >
-              {t('public.splash.contactCta')}
-            </a>
-          )}
         </span>
       </motion.div>
     </motion.div>

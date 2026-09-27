@@ -59,10 +59,14 @@ function printOrder(order, t) {
   <meta charset="utf-8" />
   <title>${escapeHtml(t('merchantOrders.orderNumber', { number: orderRef(order.orderNo) }))}</title>
   <style>
-    @page { size: 58mm auto; margin: 3mm; }
+    /* 80mm thermal roll. The page length is set by the script below from the
+       receipt's measured height: "size: 80mm auto" is invalid CSS (size takes
+       lengths only), so Chrome dropped the whole rule and printed on A4. */
+    @page { size: 80mm 200mm; margin: 0; }
     * { box-sizing: border-box; }
-    body { width: 52mm; margin: 0; color: #000; font-family: Arial, Tahoma, sans-serif; font-size: 11px; line-height: 1.35; }
-    h1 { margin: 0 0 6px; text-align: center; font-size: 15px; }
+    html, body { margin: 0; }
+    body { width: 80mm; padding: 4mm 4mm 6mm; color: #000; font-family: Arial, Tahoma, sans-serif; font-size: 12px; line-height: 1.4; }
+    h1 { margin: 0 0 6px; text-align: center; font-size: 16px; }
     .muted { color: #444; }
     .row { display: flex; justify-content: space-between; gap: 8px; margin: 2px 0; }
     .sep { border-top: 1px dashed #000; margin: 7px 0; }
@@ -70,9 +74,9 @@ function printOrder(order, t) {
     th { text-align: start; border-bottom: 1px dashed #000; padding-bottom: 3px; }
     td { padding: 3px 0; vertical-align: top; }
     .num { text-align: end; white-space: nowrap; }
-    .total { font-size: 14px; font-weight: 700; }
-    @media print { body { width: 52mm; } }
+    .total { font-size: 15px; font-weight: 700; }
   </style>
+  <style id="page-size"></style>
 </head>
 <body>
   <h1>${escapeHtml(t('merchantOrders.receiptTitle'))}</h1>
@@ -91,7 +95,17 @@ function printOrder(order, t) {
   <div class="row total"><span>${escapeHtml(t('merchantOrders.total'))}</span><span>${formatAmount(order.total)} ${escapeHtml(currencySuffix())}</span></div>
   <div class="sep"></div>
   <p class="muted" style="text-align:center;margin:0">${escapeHtml(t('merchantOrders.receiptThanks'))}</p>
-  <script>window.onload = () => { window.print(); setTimeout(() => window.close(), 250); }</script>
+  <script>
+    window.onload = () => {
+      // The page is exactly as long as the receipt: 80mm wide, height measured
+      // (CSS px → mm at 96dpi) plus a little slack so the last line never
+      // spills onto a second page.
+      const mm = Math.ceil((document.body.scrollHeight * 25.4) / 96) + 4
+      document.getElementById('page-size').textContent = '@page { size: 80mm ' + mm + 'mm; margin: 0; }'
+      window.print()
+      setTimeout(() => window.close(), 250)
+    }
+  </script>
 </body>
 </html>`
   const win = window.open('', '_blank', 'width=420,height=680')

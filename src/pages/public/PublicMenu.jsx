@@ -72,6 +72,7 @@ const STOREFRONT_BACKGROUND_DARK = '#0c0c0e'
 const STOREFRONT_BACKGROUND_SHADOW_DARK = '#17171a'
 const STOREFRONT_BACKGROUND_LIGHT = '#f8fafc'
 const STOREFRONT_BACKGROUND_SHADOW_LIGHT = '#eef2f7'
+const PUBLIC_MENU_PREFETCH_PX = 2600
 
 // The welcome screen shows once per tab session per store, so a reload — or
 // coming back from the WhatsApp hand-off — lands on the menu, not the intro
@@ -131,6 +132,10 @@ export default function PublicMenu() {
     () => categories.flatMap((category) => category.items || []),
     [categories],
   )
+  const lastLoadedCategoryId = useMemo(
+    () => [...categories].reverse().find((category) => category.items?.length > 0)?.id ?? null,
+    [categories],
+  )
 
   useEffect(() => {
     if (!menuLoaderRef.current || !hasMore || loadingMore) return undefined
@@ -138,11 +143,38 @@ export default function PublicMenu() {
       ([entry]) => {
         if (entry.isIntersecting) loadMore()
       },
-      { rootMargin: '900px 0px' },
+      { rootMargin: `${PUBLIC_MENU_PREFETCH_PX}px 0px` },
     )
     observer.observe(menuLoaderRef.current)
     return () => observer.disconnect()
   }, [hasMore, loadMore, loadingMore])
+
+  useEffect(() => {
+    if (!hasMore || loadingMore) return undefined
+    let frame = 0
+    const checkDistance = () => {
+      frame = 0
+      const categoryMarker = lastLoadedCategoryId
+        ? document.getElementById(`category-${lastLoadedCategoryId}`)
+        : null
+      const marker = categoryMarker || menuLoaderRef.current
+      if (!marker) return
+      if (marker.getBoundingClientRect().bottom - window.innerHeight < PUBLIC_MENU_PREFETCH_PX) {
+        loadMore()
+      }
+    }
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(checkDistance)
+    }
+    checkDistance()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [hasMore, lastLoadedCategoryId, loadMore, loadingMore])
 
   // The cart prices itself from the live menu, so it has to be built from it.
   const cart = useCart(merchantId, menuItems)
@@ -534,7 +566,7 @@ export default function PublicMenu() {
     <div
       translate="no"
       data-storefront-theme={themeKey}
-      className={`public-storefront sf-theme-${themeKey} ${kitLayout ? 'sf-kit' : ''} notranslate min-h-screen bg-slate-50`}
+      className={`public-storefront sf-theme-${themeKey} ${kitLayout ? 'sf-kit' : ''} ${banners.length ? 'sf-has-banners' : ''} notranslate min-h-screen bg-slate-50`}
       style={accentVars}
     >
       {/* Header — three tiers instead of a loose column: identity (logo +
@@ -562,7 +594,11 @@ export default function PublicMenu() {
           }
           onAbout={() => setAboutOpen(true)}
           layout={kitLayout}
-          heroImage={banners[0]?.image || visibleCategories.find((category) => category.image)?.image || null}
+          // The store's own first photo, with the framing the merchant chose —
+          // never a banner: banners are drawn wide (2:1, often with text), and
+          // the hero is tall on a phone, so one was cropped past recognition.
+          heroImage={visibleCategories.find((category) => category.image)?.image || null}
+          heroFocus={visibleCategories.find((category) => category.image)?.imageFocus ?? null}
         />
       ) : (
         <header className="public-header border-b border-slate-200 bg-white">
@@ -836,7 +872,29 @@ export default function PublicMenu() {
             </div>
           )}
 
+          {loadingMore && !isMenuEmpty && (
+            <div className="fixed bottom-24 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-slate-200/70 bg-white/90 px-4 py-2 text-sm font-semibold text-slate-700 shadow-xl shadow-slate-900/15 backdrop-blur dark:border-white/10 dark:bg-slate-900/90 dark:text-slate-100">
+              <span
+                aria-label={t('common.loading')}
+                role="status"
+                className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-[var(--merchant-primary)]"
+              />
+              {t('common.loading')}
+            </div>
+          )}
+
           <div ref={menuLoaderRef} className="h-8" />
+          {!loadingMore && hasMore && !isMenuEmpty && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={loadMore}
+                className="inline-flex items-center justify-center rounded-full border border-slate-200/70 bg-white/85 px-5 py-2.5 text-sm font-bold text-slate-700 shadow-lg shadow-slate-900/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-white/10 dark:text-slate-100 dark:hover:bg-white/15"
+              >
+                {t('common.loadMore')}
+              </button>
+            </div>
+          )}
           {loadingMore && !isMenuEmpty && (
             <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-center text-sm text-slate-500">
               {t('common.loading')}

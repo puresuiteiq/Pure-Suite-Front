@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient'
-import { clearAdminSession, getAdminSession } from './session'
+import { clearAdminSession, getAdminSession, setAdminSession } from './session'
 
 /**
  * Super Admin session. Signing in is role-agnostic and lives in
@@ -10,6 +10,12 @@ import { clearAdminSession, getAdminSession } from './session'
  */
 export const adminAuthService = {
   getSession: getAdminSession,
+  setSession: setAdminSession,
+
+  /** GET /api/admin/me → { id, email, name, role } — the role as it is now. */
+  me() {
+    return apiClient.get('/admin/me', { auth: 'admin' })
+  },
 
   /**
    * Change the signed-in admin's own password. Hits the admin-gated profile

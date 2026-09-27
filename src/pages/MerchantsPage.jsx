@@ -10,6 +10,7 @@ import MerchantEditModal from '../components/merchants/MerchantEditModal'
 import { useMerchants } from '../hooks/useMerchants'
 import { merchantsService } from '../services/merchantsService'
 import { businessTypeLabel } from '../config/businessCategories'
+import { useAdminAuth } from '../hooks/useAdminAuth'
 import { translateApiError } from '../utils/apiError'
 
 const STATUS_STYLES = {
@@ -19,6 +20,7 @@ const STATUS_STYLES = {
 }
 
 const MERCHANT_PAGE_SIZE = 10
+const MERCHANT_PREFETCH_PX = 3200
 
 function StatusBadge({ status }) {
   const { t } = useTranslation()
@@ -37,6 +39,7 @@ export default function MerchantsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '')
   const [debouncedSearch, setDebouncedSearch] = useState(() => searchParams.get('q') ?? '')
+  const createdBy = searchParams.get('createdBy') ?? ''
   const {
     data: merchants,
     setData: setMerchants,
@@ -46,13 +49,16 @@ export default function MerchantsPage() {
     total,
     hasMore,
     loadMore,
-  } = useMerchants({ pageSize: MERCHANT_PAGE_SIZE, query: debouncedSearch })
+  } = useMerchants({ pageSize: MERCHANT_PAGE_SIZE, query: debouncedSearch, createdBy })
   const { t } = useTranslation()
   const loadMoreRef = useRef(null)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [toEdit, setToEdit] = useState(null) // merchant being edited
   const [pendingId, setPendingId] = useState(null) // row with an in-flight action
+  // A sub-admin sees only the merchants they added (the API scopes the list)
+  // and may not suspend or delete them; the main admin also sees who added each.
+  const { isSuperAdmin } = useAdminAuth()
   const [toDelete, setToDelete] = useState(null) // merchant pending delete confirm
   const [deleteError, setDeleteError] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -66,7 +72,15 @@ export default function MerchantsPage() {
     const timer = window.setTimeout(() => {
       const q = search.trim()
       setDebouncedSearch(q)
-      setSearchParams(q ? { q } : {}, { replace: true })
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (q) next.set('q', q)
+          else next.delete('q')
+          return next
+        },
+        { replace: true },
+      )
     }, 250)
     return () => window.clearTimeout(timer)
   }, [search, setSearchParams])
@@ -78,11 +92,32 @@ export default function MerchantsPage() {
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) loadMore()
       },
-      { rootMargin: '800px 0px' },
+      { rootMargin: `${MERCHANT_PREFETCH_PX}px 0px` },
     )
     observer.observe(node)
     return () => observer.disconnect()
   }, [hasMore, loadMore])
+
+  useEffect(() => {
+    if (!hasMore || loading || loadingMore) return undefined
+    let frame = 0
+    const checkDistance = () => {
+      frame = 0
+      const remaining = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight)
+      if (remaining < MERCHANT_PREFETCH_PX) loadMore()
+    }
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(checkDistance)
+    }
+    checkDistance()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [hasMore, loadMore, loading, loadingMore])
 
   const handleCreate = async (form) => {
     const created = await merchantsService.create(form)
@@ -143,6 +178,17 @@ export default function MerchantsPage() {
         }
       />
 
+      {loadingMore && merchants.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-slate-200/70 bg-white/90 px-4 py-2 text-sm font-semibold text-slate-700 shadow-xl shadow-slate-900/15 backdrop-blur dark:border-white/10 dark:bg-slate-900/90 dark:text-slate-100">
+          <span
+            aria-label={t('common.loading')}
+            role="status"
+            className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-600"
+          />
+          {t('common.loading')}
+        </div>
+      )}
+
       <div className="mb-5">
         <label className="relative block max-w-xl">
           <Icon
@@ -168,6 +214,26 @@ export default function MerchantsPage() {
           )}
         </label>
       </div>
+
+      {createdBy && isSuperAdmin && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-500/20 bg-brand-500/10 px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
+          <span className="font-medium">{t('merchants.filteredBySupervisor')}</span>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon="close"
+            onClick={() =>
+              setSearchParams((prev) => {
+                const next = new URLSearchParams(prev)
+                next.delete('createdBy')
+                return next
+              })
+            }
+          >
+            {t('common.clear')}
+          </Button>
+        </div>
+      )}
 
       <div>
         {loading && (
@@ -250,6 +316,14 @@ export default function MerchantsPage() {
                         <dt className="text-slate-500 dark:text-slate-400">{t('merchants.cols.plan')}</dt>
                         <dd className="font-medium text-slate-700 dark:text-slate-200">{t(`plans.${m.plan}`)}</dd>
                       </div>
+                      {isSuperAdmin && (
+                        <div className="flex items-center justify-between gap-3 py-2">
+                          <dt className="text-slate-500 dark:text-slate-400">{t('merchants.addedBy')}</dt>
+                          <dd className="truncate font-medium text-slate-700 dark:text-slate-200">
+                            <CreatedBy merchant={m} />
+                          </dd>
+                        </div>
+                      )}
                     </dl>
                   </div>
 
@@ -264,16 +338,18 @@ export default function MerchantsPage() {
                       <Icon name="user" className="hidden h-4 w-4 shrink-0 min-[360px]:block" />
                       {t('merchants.actions.viewDetails')}
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => handleSetStatus(m.id, isActive ? 'suspended' : 'active')}
-                      disabled={busy}
-                      className={iconBtn}
-                      aria-label={isActive ? t('merchants.actions.deactivate') : t('merchants.actions.activate')}
-                      title={isActive ? t('merchants.actions.deactivate') : t('merchants.actions.activate')}
-                    >
-                      <Icon name={isActive ? 'ban' : 'check'} className="h-4 w-4" />
-                    </button>
+                    {isSuperAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetStatus(m.id, isActive ? 'suspended' : 'active')}
+                        disabled={busy}
+                        className={iconBtn}
+                        aria-label={isActive ? t('merchants.actions.deactivate') : t('merchants.actions.activate')}
+                        title={isActive ? t('merchants.actions.deactivate') : t('merchants.actions.activate')}
+                      >
+                        <Icon name={isActive ? 'ban' : 'check'} className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setToEdit(m)}
@@ -284,16 +360,18 @@ export default function MerchantsPage() {
                     >
                       <Icon name="pencil" className="h-4 w-4" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => (setDeleteError(null), setToDelete(m))}
-                      disabled={busy}
-                      className={`${iconBtn} hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-500/30 dark:hover:bg-red-500/10 dark:hover:text-red-400`}
-                      aria-label={t('merchants.actions.delete')}
-                      title={t('merchants.actions.delete')}
-                    >
-                      <Icon name="trash" className="h-4 w-4" />
-                    </button>
+                    {isSuperAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => (setDeleteError(null), setToDelete(m))}
+                        disabled={busy}
+                        className={`${iconBtn} hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-500/30 dark:hover:bg-red-500/10 dark:hover:text-red-400`}
+                        aria-label={t('merchants.actions.delete')}
+                        title={t('merchants.actions.delete')}
+                      >
+                        <Icon name="trash" className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </li>
               )
@@ -354,6 +432,11 @@ export default function MerchantsPage() {
                           </div>
                           <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                             <span>#{m.id}</span>
+                            {isSuperAdmin && (
+                              <span className="truncate">
+                                · {t('merchants.addedBy')}: <CreatedBy merchant={m} />
+                              </span>
+                            )}
                             <span className={`inline-flex items-center gap-1 font-medium ${m.isOpen ? 'text-emerald-600' : 'text-slate-500 dark:text-slate-400'}`}>
                               <span className={`h-1.5 w-1.5 rounded-full ${m.isOpen ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                               {m.isOpen ? t('merchants.availability.open') : t('merchants.availability.closed')}
@@ -386,15 +469,17 @@ export default function MerchantsPage() {
                         >
                           {t('merchants.actions.viewDetails')}
                         </Link>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          icon={isActive ? 'ban' : 'check'}
-                          disabled={busy}
-                          onClick={() => handleSetStatus(m.id, isActive ? 'suspended' : 'active')}
-                        >
-                          {isActive ? t('merchants.actions.deactivate') : t('merchants.actions.activate')}
-                        </Button>
+                        {isSuperAdmin && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            icon={isActive ? 'ban' : 'check'}
+                            disabled={busy}
+                            onClick={() => handleSetStatus(m.id, isActive ? 'suspended' : 'active')}
+                          >
+                            {isActive ? t('merchants.actions.deactivate') : t('merchants.actions.activate')}
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="secondary"
@@ -404,15 +489,17 @@ export default function MerchantsPage() {
                           disabled={busy}
                           onClick={() => setToEdit(m)}
                         />
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          icon="trash"
-                          aria-label={t('merchants.actions.delete')}
-                          title={t('merchants.actions.delete')}
-                          disabled={busy}
-                          onClick={() => (setDeleteError(null), setToDelete(m))}
-                        />
+                        {isSuperAdmin && (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            icon="trash"
+                            aria-label={t('merchants.actions.delete')}
+                            title={t('merchants.actions.delete')}
+                            disabled={busy}
+                            onClick={() => (setDeleteError(null), setToDelete(m))}
+                          />
+                        )}
                       </div>
                     </div>
                   )
@@ -469,4 +556,11 @@ export default function MerchantsPage() {
       />
     </div>
   )
+}
+
+/** Who added a merchant, for the main admin's list. */
+function CreatedBy({ merchant }) {
+  const { t } = useTranslation()
+  if (!merchant.createdBy) return <span>{t('merchants.addedByUnknown')}</span>
+  return <bdi className="font-semibold">{merchant.createdBy.name || t('merchants.addedByDeleted')}</bdi>
 }

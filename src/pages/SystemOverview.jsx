@@ -38,6 +38,7 @@ const STAT_LINKS = {
 const MANAGE_LINKS = [
   { key: 'plans', to: '/plans', icon: 'star' },
   { key: 'subscriptions', to: '/subscriptions', icon: 'user' },
+  { key: 'admins', to: '/admins', icon: 'user' },
   { key: 'appearance', to: '/appearance', icon: 'droplet' },
 ]
 

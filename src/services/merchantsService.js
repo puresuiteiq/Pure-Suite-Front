@@ -35,6 +35,7 @@ export const merchantsService = {
     if (params?.limit) search.set('limit', String(params.limit))
     if (params?.offset) search.set('offset', String(params.offset))
     if (params?.q) search.set('q', params.q)
+    if (params?.createdBy) search.set('createdBy', String(params.createdBy))
     if (params?.subscriptionStatus) search.set('subscriptionStatus', params.subscriptionStatus)
     if (params?.sort) search.set('sort', params.sort)
     if (params?.includeSubscriptionSummary) search.set('includeSubscriptionSummary', '1')

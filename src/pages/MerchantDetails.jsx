@@ -11,6 +11,7 @@ import { useAuth } from '../hooks/useAuth'
 import { usePlans } from '../hooks/usePlans'
 import { formatCurrency } from '../utils/format'
 import { modeForBusinessType, businessTypeLabel } from '../config/businessCategories'
+import { useAdminAuth } from '../hooks/useAdminAuth'
 import { translateApiError } from '../utils/apiError'
 
 /** The app's card surface — same treatment as StatCard and the dashboards. */
@@ -38,6 +39,8 @@ export default function MerchantDetails() {
   // Adopt a merchant session without touching the admin one — see manageAccount.
   const { adoptSession: adoptMerchant } = useAuth()
   const { data: plans } = usePlans()
+  // Cancelling a subscription suspends the merchant: the main admin's call.
+  const { isSuperAdmin } = useAdminAuth()
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -308,7 +311,7 @@ export default function MerchantDetails() {
                   <Button variant="secondary" size="sm" icon="check" onClick={() => setRenewOpen(true)}>
                     {t('merchantDetails.renew')}
                   </Button>
-                  {hasLiveSubscription && (
+                  {isSuperAdmin && hasLiveSubscription && (
                     <Button variant="secondary" size="sm" icon="close" onClick={() => (setCancelError(null), setCancelOpen(true))}>
                       {t('merchantDetails.cancelSubscription')}
                     </Button>

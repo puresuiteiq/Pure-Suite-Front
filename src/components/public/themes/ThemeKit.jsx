@@ -203,7 +203,7 @@ function CoverHeader(props) {
 
 /** Hero: a full-bleed photograph with the name set over it. */
 function HeroHeader(props) {
-  const { profile, businessName, isOpen, searchOpen, onToggleSearch, onAbout, heroImage } = props
+  const { profile, businessName, isOpen, searchOpen, onToggleSearch, onAbout, heroImage, heroFocus } = props
   const { t } = useVerticalT()
   const rise = useRise()
   const hasSocial = Object.values(profile.socialLinks || {}).some(Boolean)
@@ -218,6 +218,7 @@ function HeroHeader(props) {
             initial={{ scale: 1.08 }}
             animate={{ scale: 1 }}
             transition={{ duration: 1.6, ease: EASE }}
+            style={{ objectPosition: focusPosition(heroFocus) }}
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
@@ -505,10 +506,15 @@ export function KitMenu({ categories, onOpen, onQuickAdd, layout }) {
                 ))}
               </div>
             ) : items === 'editorial' ? (
-              <div className="space-y-10">
-                <KitFeature item={lead} onOpen={() => onOpen(lead)} onQuickAdd={onQuickAdd} />
-                {rest.length > 0 && cards(rest)}
-              </div>
+              // A category can arrive with no items yet (the menu loads in
+              // pages), so there may be no lead to feature. Rendering one from
+              // `undefined` crashed the whole storefront to a blank page.
+              lead ? (
+                <div className="space-y-10">
+                  <KitFeature item={lead} onOpen={() => onOpen(lead)} onQuickAdd={onQuickAdd} />
+                  {rest.length > 0 && cards(rest)}
+                </div>
+              ) : null
             ) : (
               cards(category.items)
             )}

@@ -12,7 +12,7 @@ import logo from '../../assets/picture/logo1.png'
  * - Slides in as an off-canvas drawer on small screens (controlled by `open`).
  */
 export default function Sidebar({ open, onClose }) {
-  const { logout } = useAdminAuth()
+  const { logout, isSuperAdmin } = useAdminAuth()
   const { branding } = usePlatformBranding()
   const { t } = useTranslation()
   const platformName = branding.name || 'RestoSaaS'
@@ -58,7 +58,7 @@ export default function Sidebar({ open, onClose }) {
           <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
             {t('nav.management')}
           </p>
-          {navigation.map((item) => (
+          {navigation.filter((item) => isSuperAdmin || !item.superOnly).map((item) => (
             <SidebarNavLink
               key={item.to}
               to={item.to}

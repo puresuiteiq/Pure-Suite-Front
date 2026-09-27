@@ -1963,8 +1963,10 @@ html[data-theme='light'] .public-storefront.sf-theme-magazine {
 }
 .sf-theme-magazine .sf-kit-hero-kicker { color: color-mix(in srgb, var(--merchant-primary) 55%, white); }
 .sf-theme-magazine .sf-kit-logo { border-radius: 9999px; box-shadow: 0 0 0 2px rgb(255 255 255 / .6); }
-/* The hero already carries the first picture; a carousel under it repeats it. */
-.public-storefront.sf-theme-magazine .public-carousel { display: none; }
+/* The hero already carries the first product photo, so the automatic
+   carousel (built from those same photos) would only repeat it. Banners the
+   merchant uploaded are their own content, and stay. */
+.public-storefront.sf-theme-magazine:not(.sf-has-banners) .public-carousel { display: none; }
 .sf-theme-magazine .sf-kit-card { background: transparent; border: 0; border-radius: 0; box-shadow: none; overflow: visible; }
 .sf-theme-magazine .sf-kit-card .sf-kit-photo { border-radius: 1rem; }
 .sf-theme-magazine .sf-kit-card-body { padding: .8rem 0 0; }
@@ -2117,4 +2119,43 @@ html[data-theme='light'] .public-storefront.sf-theme-boutique {
   top: .6rem; bottom: auto; inset-inline-end: .6rem;
   width: 2.2rem; height: 2.2rem; border-radius: 9999px;
   color: #0a0a0a; background: #fff; box-shadow: 0 6px 16px -6px rgb(0 0 0 / .45);
+}
+
+/* Welcome-screen "Designed by" credit: a gold frame with a light running
+   around it, a twinkling star, and a shine across the WhatsApp button. */
+.splash-credit {
+  overflow: hidden;
+  isolation: isolate;
+  background: rgb(214 168 79 / .35);
+}
+.splash-credit::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -150% -20%;
+  background: conic-gradient(from 0deg, transparent 0 55%, #f7df9a 70%, #d6a84f 80%, transparent 92%);
+  animation: splash-credit-spin 3.2s linear infinite;
+}
+.splash-credit-star { animation: splash-credit-twinkle 2.4s ease-in-out infinite; }
+.splash-credit-cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / .75) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: splash-credit-shine 3.2s ease-in-out 1.4s infinite;
+}
+@keyframes splash-credit-spin { to { transform: rotate(360deg); } }
+@keyframes splash-credit-twinkle {
+  0%, 100% { opacity: .55; transform: scale(.85) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(45deg); }
+}
+@keyframes splash-credit-shine {
+  0%, 55% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash-credit::before,
+  .splash-credit-star,
+  .splash-credit-cta::after { animation: none; }
 }

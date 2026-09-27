@@ -1,4 +1,44 @@
 {
+  "subAdmins": {
+    "title": "Sub-admins",
+    "subtitle": "People who add merchants for you and manage only the ones they added.",
+    "add": "Add sub-admin",
+    "adding": "Adding…",
+    "addTitle": "New sub-admin",
+    "name": "Name",
+    "email": "Email (used to sign in)",
+    "emailHint": "They sign in at the same login page. A password is generated for you to share.",
+    "password": "Temporary password",
+    "canTitle": "A sub-admin can",
+    "can": "Add merchants, and manage only the merchants they added: edit details, reset a merchant’s password, open the merchant’s panel, and renew subscriptions.",
+    "cannotTitle": "A sub-admin cannot",
+    "cannot": "Delete or suspend merchants, cancel subscriptions, see merchants other people added, or open revenue, plans, orders, reviews or appearance.",
+    "loading": "Loading sub-admins…",
+    "empty": "No sub-admins yet",
+    "emptyHint": "Add one to let someone else add merchants for you.",
+    "merchantCount_one": "{{count}} merchant added",
+    "merchantCount_other": "{{count}} merchants added",
+    "resetPassword": "Reset password",
+    "resetTitle": "Reset this password?",
+    "resetConfirm": "{{name}} will need the new password to sign in. Their current one stops working.",
+    "resetDoneTitle": "New password",
+    "blocked": "Blocked",
+    "viewMerchants": "View merchants",
+    "block": "Block sub-admin",
+    "unblock": "Unblock sub-admin",
+    "blockTitle": "Block this sub-admin?",
+    "blockConfirm": "{{name}} will lose access immediately and cannot sign in until you unblock them.",
+    "unblockTitle": "Unblock this sub-admin?",
+    "unblockConfirm": "{{name}} will be able to sign in again.",
+    "delete": "Delete sub-admin",
+    "deleteTitle": "Delete this sub-admin?",
+    "deleteConfirm": "{{name}} will lose access immediately. The merchants they added stay as they are.",
+    "createdTitle": "Sub-admin added",
+    "createdIntro": "Share these sign-in details with {{name}}.",
+    "copyNote": "This password is shown only now. Copy it before closing.",
+    "copy": "Copy",
+    "copied": "Copied"
+  },
   "common": {
     "signOut": "Sign out",
     "signOutConfirm": "You'll need to sign in again to get back in.",
@@ -16,6 +56,7 @@
     "edit": "Edit",
     "remove": "Remove",
     "loading": "Loading…",
+    "loadMore": "Load more",
     "working": "Working…",
     "done": "Done",
     "copy": "Copy",
@@ -494,6 +535,7 @@
     "copyNote": "Copy the password now — it won't be shown again."
   },
   "nav": {
+    "subAdmins": "Sub-admins",
     "systemOverview": "System Overview",
     "merchantsManagement": "Merchants Management",
     "revenue": "Platform Revenue",
@@ -519,6 +561,7 @@
     "notificationsEmpty": "You're all caught up.",
     "notificationsDelete": "Delete notification",
     "platformOwner": "Platform owner",
+    "subAdmin": "Sub-admin",
     "merchantPortal": "Merchant Portal",
     "searchPlaceholder": "Search merchants, orders, users…"
   },
@@ -576,6 +619,8 @@
       "plansHint": "Create and price your plans",
       "subscriptionsTitle": "Subscriptions",
       "subscriptionsHint": "See who is subscribed",
+      "adminsTitle": "Sub-admins",
+      "adminsHint": "Add and manage platform supervisors",
       "appearanceTitle": "Appearance",
       "appearanceHint": "Change your dashboard colors"
     },
@@ -639,7 +684,11 @@
     "orders": "orders"
   },
   "merchants": {
+    "addedBy": "Added by",
+    "addedByUnknown": "Main admin",
+    "addedByDeleted": "Deleted sub-admin",
     "title": "Merchants Management",
+    "filteredBySupervisor": "Showing merchants added by this supervisor",
     "subtitleLoading": "Loading restaurant tenants…",
     "subtitle_one": "{{count}} restaurant tenant on the platform.",
     "subtitle_other": "{{count}} restaurant tenants on the platform.",
@@ -717,6 +766,8 @@
     "all": "All"
   },
   "errors": {
+    "ADMIN_FORBIDDEN": "Only the main admin can do this.",
+    "EMAIL_TAKEN": "That email is already used by another account.",
     "SPLASH_UNAVAILABLE": "The welcome screen needs a database update. Ask the platform administrator to run it.",
     "SPLASH_MEDIA_INVALID": "Choose a picture (JPG, PNG, WebP) or an MP4 / WebM video.",
     "SPLASH_MEDIA_TOO_LARGE": "That file is too large — the limit is {{max}} MB. Trim the video or export it at a lower quality.",
@@ -773,8 +824,8 @@
       "featured_store": "Featured product"
     },
     "royal": {
-      "kicker": "The Menu",
-      "kicker_store": "Our Collection"
+      "kicker": "Welcome to",
+      "kicker_store": "Welcome to"
     },
     "modern": {
       "follow": "Follow us"
@@ -783,8 +834,8 @@
       "welcome": "Welcome to",
       "enter": "Enter the menu",
       "enter_store": "Enter the store",
-      "hint": "Fresh food, prepared daily",
-      "hint_store": "A hand-picked selection awaits you",
+      "hint": "Browse easily and order straight on WhatsApp",
+      "hint_store": "Browse easily and order straight on WhatsApp",
       "designedBy": "Designed by",
       "contactCta": "Tap here",
       "contactMessage": "Hi! I saw the {{name}} menu and I'd like to know more about your services."

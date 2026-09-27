@@ -12,6 +12,7 @@ import AnimatedSection from '../../components/ui/AnimatedSection'
 import { translateApiError } from '../../utils/apiError'
 
 const MENU_PAGE_SIZE = 10
+const MENU_PREFETCH_PX = 2600
 
 export default function MenuManagement() {
   const { t } = useVerticalT()
@@ -43,6 +44,7 @@ export default function MenuManagement() {
 
   const loadedItems = categories.reduce((sum, c) => sum + c.items.length, 0)
   const menuItemsTotal = totalItems ?? loadedItems
+  const lastLoadedCategoryId = [...categories].reverse().find((category) => category.items.length > 0)?.id ?? null
 
   useEffect(() => {
     if (!loadMoreRef.current || !hasMore || loading || loadingMore) return undefined
@@ -50,11 +52,33 @@ export default function MenuManagement() {
       ([entry]) => {
         if (entry.isIntersecting) loadMore()
       },
-      { rootMargin: '900px 0px' },
+      { rootMargin: `${MENU_PREFETCH_PX}px 0px` },
     )
     observer.observe(loadMoreRef.current)
     return () => observer.disconnect()
   }, [hasMore, loadMore, loading, loadingMore])
+
+  useEffect(() => {
+    if (!hasMore || loading || loadingMore) return undefined
+    let frame = 0
+    const checkDistance = () => {
+      frame = 0
+      const marker = loadMoreRef.current
+      if (!marker) return
+      if (marker.getBoundingClientRect().top - window.innerHeight < MENU_PREFETCH_PX) loadMore()
+    }
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(checkDistance)
+    }
+    checkDistance()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [hasMore, loadMore, loading, loadingMore, lastLoadedCategoryId])
 
   // ---- Category handlers ----
   const submitCategory = (data) =>
@@ -168,35 +192,38 @@ export default function MenuManagement() {
       {!loading && !error && categories.length > 0 && (
         <div className="space-y-4">
           {categories.map((category, index) => (
-            <AnimatedSection key={category.id} delay={index * 0.05} className="rounded-2xl">
-              <MenuCategory
-              category={category}
-              onEditCategory={() => setCategoryModal({ open: true, category })}
-              onDeleteCategory={() =>
-                setConfirm({ open: true, error: null, kind: 'category', category })
-              }
-              onAddItem={() =>
-                setItemModal({
-                  open: true,
-                  categoryId: category.id,
-                  categoryName: category.name,
-                  item: null,
-                })
-              }
-              onEditItem={(item) => openItemEditor(category, item)}
-              onDeleteItem={(item) =>
-                setConfirm({
-                  open: true,
-                  error: null,
-                  kind: 'item',
-                  categoryId: category.id,
-                  item,
-                })
-              }
-              />
-            </AnimatedSection>
+            <div key={category.id}>
+              <AnimatedSection delay={index * 0.05} className="rounded-2xl">
+                <MenuCategory
+                category={category}
+                onEditCategory={() => setCategoryModal({ open: true, category })}
+                onDeleteCategory={() =>
+                  setConfirm({ open: true, error: null, kind: 'category', category })
+                }
+                onAddItem={() =>
+                  setItemModal({
+                    open: true,
+                    categoryId: category.id,
+                    categoryName: category.name,
+                    item: null,
+                  })
+                }
+                onEditItem={(item) => openItemEditor(category, item)}
+                onDeleteItem={(item) =>
+                  setConfirm({
+                    open: true,
+                    error: null,
+                    kind: 'item',
+                    categoryId: category.id,
+                    item,
+                  })
+                }
+                />
+              </AnimatedSection>
+              {category.id === lastLoadedCategoryId && <div ref={loadMoreRef} className="h-2" />}
+            </div>
           ))}
-          <div ref={loadMoreRef} className="h-8" />
+          {!lastLoadedCategoryId && <div ref={loadMoreRef} className="h-2" />}
           {loadingMore && (
             <div className="rounded-xl border border-slate-200 bg-white p-4 text-center text-sm text-slate-500 shadow-sm">
               {t('menu.loadingMore')}

@@ -11,6 +11,7 @@ import { merchantsService } from '../services/merchantsService'
 export function useMerchants({
   pageSize,
   query = '',
+  createdBy = '',
   subscriptionStatus = '',
   sort = '',
   includeSubscriptionSummary = false,
@@ -42,11 +43,12 @@ export function useMerchants({
               limit: pageSize,
               offset: 0,
               q: query,
+              createdBy,
               subscriptionStatus,
               sort,
               includeSubscriptionSummary,
             }
-          : { q: query, subscriptionStatus, sort, includeSubscriptionSummary },
+          : { q: query, createdBy, subscriptionStatus, sort, includeSubscriptionSummary },
       )
       .then((result) => {
         if (!active) return
@@ -72,7 +74,7 @@ export function useMerchants({
     return () => {
       active = false
     }
-  }, [includeSubscriptionSummary, pageSize, query, sort, subscriptionStatus])
+  }, [createdBy, includeSubscriptionSummary, pageSize, query, sort, subscriptionStatus])
 
   const loadMore = useCallback(async () => {
     if (!pageSize || !hasMore || loadingMoreRef.current) return
@@ -83,6 +85,7 @@ export function useMerchants({
         limit: pageSize,
         offset: offsetRef.current,
         q: query,
+        createdBy,
         subscriptionStatus,
         sort,
         includeSubscriptionSummary,
@@ -103,7 +106,7 @@ export function useMerchants({
       loadingMoreRef.current = false
       setLoadingMore(false)
     }
-  }, [hasMore, includeSubscriptionSummary, pageSize, query, sort, subscriptionStatus])
+  }, [createdBy, hasMore, includeSubscriptionSummary, pageSize, query, sort, subscriptionStatus])
 
   return {
     data,

@@ -52,7 +52,7 @@ async function ensureCsrfToken() {
   const existing = readCsrfCookie()
   if (existing) return existing
   try {
-    const res = await fetch(`${BASE_URL}/csrf-token`, { credentials: 'include' })
+    const res = await fetch(`${BASE_URL}/csrf-token`, { credentials: 'include', cache: 'no-store' })
     const data = await res.json()
     return data?.csrfToken || readCsrfCookie()
   } catch {
@@ -82,6 +82,7 @@ async function request(path, { method = 'GET', body, headers, auth = 'merchant' 
     res = await fetch(`${BASE_URL}${path}`, {
       method,
       credentials: 'include', // send/receive the httpOnly auth cookies
+      cache: 'no-store',
       headers: finalHeaders,
       body: isFile ? body : body ? JSON.stringify(body) : undefined,
     })

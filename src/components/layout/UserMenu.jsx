@@ -23,7 +23,7 @@ function initialsOf(name) {
   return letters.toUpperCase() || 'SA'
 }
 
-export default function UserMenu({ name = 'Super Admin', email, onSignOut, onChangePassword }) {
+export default function UserMenu({ name = 'Super Admin', roleLabel, email, onSignOut, onChangePassword }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const { t } = useTranslation()
@@ -61,7 +61,7 @@ export default function UserMenu({ name = 'Super Admin', email, onSignOut, onCha
         <span className="hidden text-start leading-tight sm:block">
           <span className="block text-sm font-medium text-slate-900">{name}</span>
           <span className="block text-xs text-slate-500">
-            {t('topbar.platformOwner')}
+            {roleLabel ?? t('topbar.platformOwner')}
           </span>
         </span>
         <Icon

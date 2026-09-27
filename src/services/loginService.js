@@ -28,6 +28,8 @@ export async function login({ email, password }) {
       adminId: data.admin.id,
       email: data.admin.email,
       name: data.admin.name,
+      // 'super' (the platform owner) or 'sub' (a sub-admin: Merchants only).
+      role: data.admin.role === 'sub' ? 'sub' : 'super',
     }
     clearMerchantSession()
     setAdminSession(session)

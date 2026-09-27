@@ -5,6 +5,7 @@ import { directionFor } from './i18n/languages'
 import ScrollToTop from './components/ScrollToTop'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import AdminProtectedRoute from './components/auth/AdminProtectedRoute'
+import SuperAdminRoute from './components/auth/SuperAdminRoute'
 import MerchantProfileProvider from './context/MerchantProfileProvider'
 import Login from './pages/Login'
 import PublicMenu from './pages/public/PublicMenu'
@@ -30,6 +31,7 @@ const Subscriptions = lazy(() => import('./pages/Subscriptions'))
 const AdminOrders = lazy(() => import('./pages/AdminOrders'))
 const AdminReviews = lazy(() => import('./pages/AdminReviews'))
 const Appearance = lazy(() => import('./pages/Appearance'))
+const SubAdminsPage = lazy(() => import('./pages/SubAdminsPage'))
 const MerchantDashboard = lazy(() => import('./pages/merchant/MerchantDashboard'))
 const MerchantProfile = lazy(() => import('./pages/merchant/MerchantProfile'))
 const MenuManagement = lazy(() => import('./pages/merchant/MenuManagement'))
@@ -97,15 +99,21 @@ export default function App() {
       {/* Super Admin */}
       <Route element={<AdminProtectedRoute />}>
         <Route element={<DashboardLayout />}>
-          <Route index element={<SystemOverview />} />
+          {/* Merchants: the main admin and sub-admins (the API scopes a
+              sub-admin to the merchants they added). */}
           <Route path="merchants" element={<MerchantsPage />} />
           <Route path="merchants/:merchantId" element={<MerchantDetails />} />
-          <Route path="revenue" element={<PlatformRevenue />} />
-          <Route path="plans" element={<SubscriptionPlans />} />
-          <Route path="subscriptions" element={<Subscriptions />} />
-          <Route path="orders" element={<AdminOrders />} />
-          <Route path="reviews" element={<AdminReviews />} />
-          <Route path="appearance" element={<Appearance />} />
+          {/* Everything else is the main admin's; a sub-admin lands on Merchants. */}
+          <Route element={<SuperAdminRoute />}>
+            <Route index element={<SystemOverview />} />
+            <Route path="revenue" element={<PlatformRevenue />} />
+            <Route path="plans" element={<SubscriptionPlans />} />
+            <Route path="subscriptions" element={<Subscriptions />} />
+            <Route path="orders" element={<AdminOrders />} />
+            <Route path="reviews" element={<AdminReviews />} />
+            <Route path="appearance" element={<Appearance />} />
+            <Route path="admins" element={<SubAdminsPage />} />
+          </Route>
         </Route>
       </Route>
 
