@@ -528,6 +528,8 @@
     "businessTypeCustomPlaceholder": "اكتب اسم الفئة",
     "subscriptionStarts": "بداية الاشتراك",
     "subscriptionEnds": "انتهاء الاشتراك",
+    "showSplashCredit": "إظهار \"صُمم بواسطة\" في شاشة البداية",
+    "showSplashCreditHint": "الافتراضي ظاهر. أطفئه فقط لهذا التاجر عند الحاجة.",
     "phone": "رقم الهاتف",
     "phonePlaceholder": "+964 750 000 000",
     "email": "البريد الإلكتروني",

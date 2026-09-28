@@ -416,9 +416,10 @@ function SplashContent({ profile, branding, menuLoading, onEnter }) {
       )}
 
       {/* Platform credit — platform-owned, like PoweredBy; merchants can't edit it. */}
-      <motion.div
-        {...rise(1.1)}
-        className="relative flex shrink-0 justify-center px-6 pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-2"
+      {profile.showSplashCredit !== false && (
+        <motion.div
+          {...rise(1.1)}
+        className="relative flex shrink-0 justify-center px-6 pb-[max(3.5rem,calc(env(safe-area-inset-bottom)+2.25rem))] pt-2"
       >
         {/* The platform's own gold, not the merchant's colour: it is the same
             credit on every storefront. A light runs around the frame
@@ -444,7 +445,8 @@ function SplashContent({ profile, branding, menuLoading, onEnter }) {
             )}
           </span>
         </span>
-      </motion.div>
+        </motion.div>
+      )}
     </motion.div>
   )
 }

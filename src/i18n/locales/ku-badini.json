@@ -509,6 +509,8 @@
     "businessTypeCustomPlaceholder": "ناڤێ جۆری بنڤیسە",
     "subscriptionStarts": "دەستپێکا بەشداریێ",
     "subscriptionEnds": "دویماهیا بەشداریێ",
+    "showSplashCredit": "نیشاندانا \"دیزاین ژ لایێ\" ل شاشة البداية",
+    "showSplashCreditHint": "ب شێوەیێ بنەڕەتی دیارە. بتنێ بۆ ئەڤ بازرگانی ڤەمرینە.",
     "phone": "ژمارا تەلەفۆنێ",
     "phonePlaceholder": "+964 750 000 000",
     "email": "ئیمەیل",

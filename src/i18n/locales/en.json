@@ -508,6 +508,8 @@
     "businessTypeCustomPlaceholder": "Type a category name",
     "subscriptionStarts": "Subscription starts",
     "subscriptionEnds": "Subscription ends",
+    "showSplashCredit": "Show \"Designed by\" on welcome screen",
+    "showSplashCreditHint": "Default is visible. Turn it off only for this merchant.",
     "phone": "Phone Number",
     "phonePlaceholder": "+964 750 000 000",
     "email": "Email",

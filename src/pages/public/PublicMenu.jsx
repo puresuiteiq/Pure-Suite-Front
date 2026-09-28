@@ -129,6 +129,7 @@ export default function PublicMenu() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [showInitialLoading, setShowInitialLoading] = useState(false)
   // The merchant's chosen design ('classic' until they pick one).
   const themeKey = normalizeStorefrontTheme(profile?.storefrontTheme)
   const Theme = THEMES[themeKey] ?? null
@@ -140,6 +141,15 @@ export default function PublicMenu() {
     markSplashSeen(merchantId)
     setSplashDismissed((prev) => ({ ...prev, [merchantId]: true }))
   }
+
+  useEffect(() => {
+    if (!loading || profile) {
+      setShowInitialLoading(false)
+      return undefined
+    }
+    const timer = window.setTimeout(() => setShowInitialLoading(true), 700)
+    return () => window.clearTimeout(timer)
+  }, [loading, profile])
 
   const menuItems = useMemo(
     () => categories.flatMap((category) => category.items || []),
@@ -437,8 +447,10 @@ export default function PublicMenu() {
     closeCheckout()
   }
 
-  if (loading) {
-    return <StorefrontLoading message={t('public.loadingMenu')} />
+  if (loading && !profile) {
+    return showInitialLoading
+      ? <StorefrontLoading message={t('public.loadingMenu')} />
+      : <div className="min-h-screen bg-[#0b0b0d]" />
   }
 
   if (error || !profile) {

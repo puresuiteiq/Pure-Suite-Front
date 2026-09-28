@@ -56,6 +56,7 @@ export default function MerchantEditModal({ open, onClose, onSubmit, merchant })
         plan: merchant.plan ?? 'Starter',
         subscriptionStartsAt: merchant.subscriptionStartsAt ?? '',
         subscriptionExpiresAt: merchant.subscriptionExpiresAt ?? '',
+        showSplashCredit: merchant.showSplashCredit !== false,
       })
       setErrors({})
       setSubmitError(null)
@@ -98,6 +99,7 @@ export default function MerchantEditModal({ open, onClose, onSubmit, merchant })
         plan: form.plan,
         subscriptionStartsAt: form.subscriptionStartsAt || null,
         subscriptionExpiresAt: form.subscriptionExpiresAt || null,
+        showSplashCredit: form.showSplashCredit,
       })
       onClose()
     } catch (err) {
@@ -266,6 +268,21 @@ export default function MerchantEditModal({ open, onClose, onSubmit, merchant })
             />
           </FormField>
         </div>
+
+        <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200">
+          <input
+            type="checkbox"
+            checked={form.showSplashCredit}
+            onChange={(e) => setForm((prev) => ({ ...prev, showSplashCredit: e.target.checked }))}
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500 dark:border-slate-600"
+          />
+          <span>
+            <span className="block font-semibold">{t('merchantForm.showSplashCredit')}</span>
+            <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+              {t('merchantForm.showSplashCreditHint')}
+            </span>
+          </span>
+        </label>
       </form>
     </Modal>
   )
