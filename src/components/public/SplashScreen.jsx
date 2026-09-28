@@ -62,16 +62,16 @@ const CORNERS = [
   'bottom-6 right-6 -scale-100 sm:bottom-8 sm:right-8',
 ]
 
-export default function SplashScreen({ open, profile, branding, onEnter }) {
+export default function SplashScreen({ open, profile, branding, menuLoading = false, onEnter }) {
   return createPortal(
     <AnimatePresence>
-      {open && <SplashContent key="splash" profile={profile} branding={branding} onEnter={onEnter} />}
+      {open && <SplashContent key="splash" profile={profile} branding={branding} menuLoading={menuLoading} onEnter={onEnter} />}
     </AnimatePresence>,
     document.body,
   )
 }
 
-function SplashContent({ profile, branding, onEnter }) {
+function SplashContent({ profile, branding, menuLoading, onEnter }) {
   const { t } = useVerticalT()
   const reduceMotion = useReducedMotion()
   const videoRef = useRef(null)
@@ -101,11 +101,11 @@ function SplashContent({ profile, branding, onEnter }) {
     return () => window.clearTimeout(timer)
   }, [reduceMotion])
 
-  // A picture (or no background) moves on by itself a few seconds after the
-  // intro; a video moves on when it ends (onEnded below).
+  // The progress bar opens the store when it completes. This fallback only
+  // covers browsers that pause CSS/animation callbacks while the tab is busy.
   useEffect(() => {
     if (!introDone || playsVideo) return undefined
-    const timer = window.setTimeout(enter, AUTO_ENTER_MS)
+    const timer = window.setTimeout(enter, AUTO_ENTER_MS + 250)
     return () => window.clearTimeout(timer)
   }, [introDone, playsVideo, enter])
 
@@ -164,8 +164,8 @@ function SplashContent({ profile, branding, onEnter }) {
       aria-labelledby="splash-title"
       className="notranslate fixed inset-0 z-[70] flex flex-col overflow-hidden bg-[#0b0b0d] text-white"
       initial={{ opacity: 1 }}
-      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.04 }}
-      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
     >
       {/* Base glow, tinted by the merchant's own colour. */}
       <div
@@ -378,6 +378,20 @@ function SplashContent({ profile, branding, onEnter }) {
             {t('public.splash.hint')}
           </span>
         </motion.div>
+
+        {menuLoading && (
+          <motion.div
+            {...rise(1.02)}
+            className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white/85 backdrop-blur"
+          >
+            <span
+              aria-label={t('public.loadingMenu')}
+              role="status"
+              className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"
+            />
+            {t('public.loadingMenu')}
+          </motion.div>
+        )}
       </div>
 
       {/* How long until the store opens by itself: the video's own progress,
@@ -395,6 +409,7 @@ function SplashContent({ profile, branding, onEnter }) {
               initial={{ width: '0%' }}
               animate={{ width: '100%' }}
               transition={{ duration: AUTO_ENTER_MS / 1000, ease: 'linear' }}
+              onAnimationComplete={enter}
             />
           )}
         </div>

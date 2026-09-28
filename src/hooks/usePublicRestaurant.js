@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { publicService } from '../services/publicService'
 import { resolveMediaUrl } from '../services/apiClient'
 
@@ -8,22 +8,6 @@ import { resolveMediaUrl } from '../services/apiClient'
  * Done once here rather than at each <img>, so no render site has to know the
  * deployment shape. A no-op in the normal same-origin deploy.
  */
-const MENU_PAGE_SIZE = 10
-
-function mergeCategories(current, next) {
-  const byId = new Map(current.map((category) => [category.id, { ...category, items: [...category.items] }]))
-  for (const category of next) {
-    if (!byId.has(category.id)) {
-      byId.set(category.id, { ...category, items: [...category.items] })
-      continue
-    }
-    const existing = byId.get(category.id)
-    const seen = new Set(existing.items.map((item) => item.id))
-    existing.items.push(...category.items.filter((item) => !seen.has(item.id)))
-  }
-  return [...byId.values()]
-}
-
 function withMediaUrls(data) {
   return {
     ...data,
@@ -66,10 +50,8 @@ export function usePublicRestaurant(merchantId) {
   const [platformBranding, setPlatformBranding] = useState(null)
   const [suspended, setSuspended] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [menuPage, setMenuPage] = useState(null)
+  const [menuLoading, setMenuLoading] = useState(false)
   const [error, setError] = useState(null)
-  const loadingMoreRef = useRef(false)
 
   useEffect(() => {
     if (!merchantId) return
@@ -86,11 +68,11 @@ export function usePublicRestaurant(merchantId) {
     setReviews([])
     setPlatformBranding(null)
     setSuspended(false)
-    setMenuPage(null)
+    setMenuLoading(false)
     setError(null)
 
     publicService
-      .getRestaurant(merchantId, { menu: false })
+      .getRestaurantShell(merchantId)
       .then(async (raw) => {
         if (!active) return
         const data = withMediaUrls(raw)
@@ -100,27 +82,24 @@ export function usePublicRestaurant(merchantId) {
         setBanners(data.banners)
         setReviews(data.reviews ?? [])
         setPlatformBranding(data.platformBranding ?? null)
-        setMenuPage(data.menuPage ?? null)
         setLoading(false)
-        if (!data.menuPage?.hasMore || data.suspended) return
 
-        setLoadingMore(true)
-        loadingMoreRef.current = true
+        if (data.suspended) return
+        setMenuLoading(true)
         try {
-          const menuRaw = await publicService.getRestaurant(merchantId, {
-            menuLimit: MENU_PAGE_SIZE,
-            menuOffset: 0,
-          })
+          const fullRaw = await publicService.getRestaurant(merchantId)
           if (!active) return
-          const menuData = withMediaUrls(menuRaw)
-          setCategories((prev) => mergeCategories(prev, menuData.categories ?? []))
-          setBanners(menuData.banners ?? [])
-          setMenuPage(menuData.menuPage ?? null)
+          const fullData = withMediaUrls(fullRaw)
+          setSuspended(Boolean(fullData.suspended))
+          setProfile(fullData.profile)
+          setCategories(fullData.categories ?? [])
+          setBanners(fullData.banners)
+          setReviews(fullData.reviews ?? [])
+          setPlatformBranding(fullData.platformBranding ?? null)
         } catch (err) {
           if (active) setError(err)
         } finally {
-          loadingMoreRef.current = false
-          if (active) setLoadingMore(false)
+          if (active) setMenuLoading(false)
         }
       })
       .catch((err) => active && setError(err))
@@ -131,27 +110,6 @@ export function usePublicRestaurant(merchantId) {
     }
   }, [merchantId])
 
-  const loadMore = useCallback(async () => {
-    if (!merchantId || !menuPage?.hasMore || loadingMoreRef.current) return
-    loadingMoreRef.current = true
-    setLoadingMore(true)
-    try {
-      const raw = await publicService.getRestaurant(merchantId, {
-        menuLimit: MENU_PAGE_SIZE,
-        menuOffset: categories.reduce((count, category) => count + category.items.length, 0),
-      })
-      const data = withMediaUrls(raw)
-      setCategories((prev) => mergeCategories(prev, data.categories ?? []))
-      setBanners(data.banners ?? [])
-      setMenuPage(data.menuPage ?? null)
-    } catch (err) {
-      setError(err)
-    } finally {
-      loadingMoreRef.current = false
-      setLoadingMore(false)
-    }
-  }, [categories, merchantId, menuPage?.hasMore])
-
   return {
     profile,
     categories,
@@ -161,9 +119,7 @@ export function usePublicRestaurant(merchantId) {
     platformBranding,
     suspended,
     loading,
-    loadingMore,
-    hasMore: Boolean(menuPage?.hasMore),
-    loadMore,
+    menuLoading,
     error,
   }
 }

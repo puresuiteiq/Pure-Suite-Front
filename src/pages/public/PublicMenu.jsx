@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -72,13 +72,27 @@ const STOREFRONT_BACKGROUND_DARK = '#0c0c0e'
 const STOREFRONT_BACKGROUND_SHADOW_DARK = '#17171a'
 const STOREFRONT_BACKGROUND_LIGHT = '#f8fafc'
 const STOREFRONT_BACKGROUND_SHADOW_LIGHT = '#eef2f7'
-const PUBLIC_MENU_PREFETCH_PX = 2600
 
 // The welcome screen shows once per tab session per store, so a reload — or
 // coming back from the WhatsApp hand-off — lands on the menu, not the intro
 // again. sessionStorage can be unavailable (private mode, blocked storage);
 // then it simply shows every time.
 const splashSeenKey = (merchantId) => `splash-seen:${merchantId}`
+function StorefrontLoading({ message }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-center dark:bg-slate-950">
+      <div className="flex flex-col items-center gap-3 rounded-3xl border border-slate-200/70 bg-white/80 px-8 py-7 shadow-xl shadow-slate-900/5 backdrop-blur dark:border-white/10 dark:bg-white/5">
+        <span
+          aria-label={message}
+          role="status"
+          className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[var(--merchant-primary,#16a34a)] dark:border-white/15"
+        />
+        <p className="text-sm font-bold text-slate-700 dark:text-slate-100">{message}</p>
+      </div>
+    </div>
+  )
+}
+
 function splashSeen(merchantId) {
   try {
     return window.sessionStorage.getItem(splashSeenKey(merchantId)) === '1'
@@ -99,9 +113,8 @@ export default function PublicMenu() {
   const { t } = useTranslation()
   const { theme } = useTheme()
   const reduceMotion = useReducedMotion()
-  const { profile, categories, banners, reviews, setReviews, platformBranding, suspended, loading, loadingMore, hasMore, loadMore, error } =
+  const { profile, categories, banners, reviews, setReviews, platformBranding, suspended, loading, menuLoading, error } =
     usePublicRestaurant(merchantId)
-  const menuLoaderRef = useRef(null)
   const [cartOpen, setCartOpen] = useState(false) // mobile drawer
   const [selectedItem, setSelectedItem] = useState(null)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
@@ -132,49 +145,6 @@ export default function PublicMenu() {
     () => categories.flatMap((category) => category.items || []),
     [categories],
   )
-  const lastLoadedCategoryId = useMemo(
-    () => [...categories].reverse().find((category) => category.items?.length > 0)?.id ?? null,
-    [categories],
-  )
-
-  useEffect(() => {
-    if (!menuLoaderRef.current || !hasMore || loadingMore) return undefined
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) loadMore()
-      },
-      { rootMargin: `${PUBLIC_MENU_PREFETCH_PX}px 0px` },
-    )
-    observer.observe(menuLoaderRef.current)
-    return () => observer.disconnect()
-  }, [hasMore, loadMore, loadingMore])
-
-  useEffect(() => {
-    if (!hasMore || loadingMore) return undefined
-    let frame = 0
-    const checkDistance = () => {
-      frame = 0
-      const categoryMarker = lastLoadedCategoryId
-        ? document.getElementById(`category-${lastLoadedCategoryId}`)
-        : null
-      const marker = categoryMarker || menuLoaderRef.current
-      if (!marker) return
-      if (marker.getBoundingClientRect().bottom - window.innerHeight < PUBLIC_MENU_PREFETCH_PX) {
-        loadMore()
-      }
-    }
-    const onScroll = () => {
-      if (!frame) frame = window.requestAnimationFrame(checkDistance)
-    }
-    checkDistance()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll)
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
-      if (frame) window.cancelAnimationFrame(frame)
-    }
-  }, [hasMore, lastLoadedCategoryId, loadMore, loadingMore])
 
   // The cart prices itself from the live menu, so it has to be built from it.
   const cart = useCart(merchantId, menuItems)
@@ -468,11 +438,7 @@ export default function PublicMenu() {
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">
-        {t('public.loadingMenu')}
-      </div>
-    )
+    return <StorefrontLoading message={t('public.loadingMenu')} />
   }
 
   if (error || !profile) {
@@ -812,9 +778,16 @@ export default function PublicMenu() {
               {vt('public.restaurantClosedHint')}
             </div>
           )}
-          {isMenuEmpty && loadingMore ? (
-            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-              {t('common.loading')}
+          {menuLoading ? (
+            <div className="rounded-3xl border border-slate-200/70 bg-white/85 p-8 text-center shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5">
+              <span
+                aria-label={t('public.loadingMenu')}
+                role="status"
+                className="mx-auto block h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[var(--merchant-primary)] dark:border-white/15"
+              />
+              <p className="mt-4 text-sm font-bold text-slate-700 dark:text-slate-100">
+                {t('public.loadingMenu')}
+              </p>
             </div>
           ) : isMenuEmpty ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
@@ -872,35 +845,6 @@ export default function PublicMenu() {
             </div>
           )}
 
-          {loadingMore && !isMenuEmpty && (
-            <div className="fixed bottom-24 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-slate-200/70 bg-white/90 px-4 py-2 text-sm font-semibold text-slate-700 shadow-xl shadow-slate-900/15 backdrop-blur dark:border-white/10 dark:bg-slate-900/90 dark:text-slate-100">
-              <span
-                aria-label={t('common.loading')}
-                role="status"
-                className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-[var(--merchant-primary)]"
-              />
-              {t('common.loading')}
-            </div>
-          )}
-
-          <div ref={menuLoaderRef} className="h-8" />
-          {!loadingMore && hasMore && !isMenuEmpty && (
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={loadMore}
-                className="inline-flex items-center justify-center rounded-full border border-slate-200/70 bg-white/85 px-5 py-2.5 text-sm font-bold text-slate-700 shadow-lg shadow-slate-900/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-white/10 dark:text-slate-100 dark:hover:bg-white/15"
-              >
-                {t('common.loadMore')}
-              </button>
-            </div>
-          )}
-          {loadingMore && !isMenuEmpty && (
-            <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-center text-sm text-slate-500">
-              {t('common.loading')}
-            </div>
-          )}
-
           {/* Interactive summary cards: hours directly precede customer reviews. */}
           {(profile.workingHours?.length > 0 || reviewsEnabled) && (
           <section className="mt-10 grid gap-4 sm:grid-cols-2">
@@ -931,6 +875,7 @@ export default function PublicMenu() {
         open={profile.splashEnabled === true && !splashDone}
         profile={profile}
         branding={platformBranding}
+        menuLoading={menuLoading}
         onEnter={enterFromSplash}
       />
 
