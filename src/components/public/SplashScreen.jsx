@@ -82,6 +82,10 @@ function SplashContent({ profile, branding, menuLoading, onEnter }) {
   const [videoFailed, setVideoFailed] = useState(false)
   // 0..1 through the video, for the progress line.
   const [videoProgress, setVideoProgress] = useState(0)
+  // The sound button shows only for a video that has an audio track, and the
+  // video always starts muted: browsers refuse to autoplay sound.
+  const [hasAudio, setHasAudio] = useState(false)
+  const [muted, setMuted] = useState(true)
 
   const media = profile.splashMedia
   const businessName = profile.businessName || t('public.businessFallback')
@@ -137,6 +141,33 @@ function SplashContent({ profile, branding, menuLoading, onEnter }) {
     video.muted = true
     video.play?.().catch(() => setVideoFailed(true))
   }, [media?.url])
+
+  // Does this video carry sound? Each browser reports it differently, and some
+  // only once audio has been decoded, so this is re-checked as it plays until
+  // it says yes. Muted playback still decodes, so the answer arrives silently.
+  const checkAudio = (video) => {
+    if (hasAudio || !video) return
+    if (video.mozHasAudio || video.webkitAudioDecodedByteCount > 0 || video.audioTracks?.length > 0) {
+      setHasAudio(true)
+    }
+  }
+
+  // A tap is a user gesture, so unmuting is allowed here.
+  const toggleSound = () => {
+    const video = videoRef.current
+    if (!video) return
+    video.muted = !video.muted
+    setMuted(video.muted)
+    if (!video.muted) {
+      // A browser that still refuses sound pauses the video rather than play
+      // it aloud. Never leave a frozen frame: back to muted, and keep playing.
+      video.play?.().catch(() => {
+        video.muted = true
+        setMuted(true)
+        video.play?.().catch(() => {})
+      })
+    }
+  }
 
   // platformName, not the footer's `name` — that is a footer label and can
   // read "POWERED BY".
@@ -196,6 +227,7 @@ function SplashContent({ profile, branding, menuLoading, onEnter }) {
               preload="auto"
               disablePictureInPicture
               onCanPlay={() => setMediaReady(true)}
+              onLoadedMetadata={(event) => checkAudio(event.currentTarget)}
               onError={() => setVideoFailed(true)}
               // Plays once, then the store opens. Only once it is on screen:
               // a short clip can finish while still hidden behind the intro,
@@ -203,6 +235,7 @@ function SplashContent({ profile, branding, menuLoading, onEnter }) {
               onTimeUpdate={(event) => {
                 const { currentTime, duration } = event.currentTarget
                 if (showMedia && duration) setVideoProgress(currentTime / duration)
+                checkAudio(event.currentTarget)
               }}
               onEnded={() => showMedia && enter()}
               className="h-full w-full object-cover"
@@ -282,9 +315,40 @@ function SplashContent({ profile, branding, menuLoading, onEnter }) {
         </svg>
       ))}
 
-      {/* Centred at the top, clear of the corner marks. */}
-      <div className="absolute inset-x-0 top-5 z-10 flex justify-center sm:top-7">
+      {/* Centred at the top, clear of the corner marks: language, and the
+          sound button once a video with audio is on screen. */}
+      <div className="absolute inset-x-0 top-5 z-10 flex items-center justify-center gap-2.5 sm:top-7">
         <LanguageSwitcher tone="dark" />
+        <AnimatePresence>
+          {playsVideo && hasAudio && showMedia && (
+            <motion.button
+              key="sound"
+              type="button"
+              onClick={toggleSound}
+              aria-label={muted ? t('public.splash.unmute') : t('public.splash.mute')}
+              aria-pressed={!muted}
+              title={muted ? t('public.splash.unmute') : t('public.splash.mute')}
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              whileTap={reduceMotion ? undefined : { scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 24 }}
+              className={`splash-sound relative flex h-11 w-11 items-center justify-center rounded-full border text-white backdrop-blur-md transition-colors ${
+                muted ? 'is-muted border-white/20 bg-black/35' : 'border-white/35 bg-white/15'
+              }`}
+            >
+              <Icon name={muted ? 'volumeOff' : 'volume'} className="h-5 w-5" />
+              {/* Sound on: three bars dancing. */}
+              {!muted && (
+                <span aria-hidden="true" className="splash-sound-bars absolute -bottom-1.5 flex h-2.5 items-end gap-[2px]">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+              )}
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Content */}

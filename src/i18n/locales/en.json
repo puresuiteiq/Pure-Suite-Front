@@ -840,6 +840,8 @@
       "hint_store": "Browse easily and order straight on WhatsApp",
       "designedBy": "Designed by",
       "contactCta": "Tap here",
+      "unmute": "Turn sound on",
+      "mute": "Mute",
       "contactMessage": "Hi! I saw the {{name}} menu and I'd like to know more about your services."
     },
     "restaurantClosed": "This restaurant is currently closed.",
