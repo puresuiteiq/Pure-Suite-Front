@@ -113,14 +113,50 @@ function SplashContent({ profile, branding, menuLoading, onEnter }) {
     return () => window.clearTimeout(timer)
   }, [introDone, playsVideo, enter])
 
-  // The video autoplays hidden during the intro so it is buffered; rewind it
-  // the moment it is revealed, so customers see it from the first frame.
+  // Set once the customer mutes with the button: from then on the sound is
+  // theirs to turn back on, never switched on for them.
+  const userMuted = useRef(false)
+
+  // The video autoplays hidden (and muted) during the intro so it is
+  // buffered; when it is revealed it restarts from the first frame WITH sound.
+  // Browsers that refuse sound before the visitor has touched the page reject
+  // that play() — then it carries on muted, and the sound comes on at the
+  // first touch anywhere on the screen (see the effect below).
   useEffect(() => {
     const video = videoRef.current
     if (!showMedia || !video) return
     video.currentTime = 0
-    video.play?.().catch(() => setVideoFailed(true))
+    video.muted = false
+    setMuted(false)
+    video.play?.().catch(() => {
+      video.muted = true
+      setMuted(true)
+      video.play?.().catch(() => setVideoFailed(true))
+    })
   }, [showMedia])
+
+  // Still muted because the browser insisted: the visitor's first touch, key
+  // or click on the screen is the gesture that lets the sound play.
+  useEffect(() => {
+    if (!showMedia || !muted || userMuted.current) return undefined
+    const events = ['pointerdown', 'keydown', 'touchstart']
+    const unmute = (event) => {
+      // A tap on the sound button is the button's own business — unmuting
+      // here too would have it switch the sound straight back off.
+      if (event.target?.closest?.('.splash-sound')) return
+      const video = videoRef.current
+      if (!video || userMuted.current) return
+      events.forEach((name) => window.removeEventListener(name, unmute, { capture: true }))
+      video.muted = false
+      setMuted(false)
+      video.play?.().catch(() => {
+        video.muted = true
+        setMuted(true)
+      })
+    }
+    events.forEach((name) => window.addEventListener(name, unmute, { capture: true }))
+    return () => events.forEach((name) => window.removeEventListener(name, unmute, { capture: true }))
+  }, [showMedia, muted])
 
   // The menu underneath must not scroll behind the screen.
   useEffect(() => {
@@ -157,6 +193,7 @@ function SplashContent({ profile, branding, menuLoading, onEnter }) {
     const video = videoRef.current
     if (!video) return
     video.muted = !video.muted
+    userMuted.current = video.muted
     setMuted(video.muted)
     if (!video.muted) {
       // A browser that still refuses sound pauses the video rather than play
