@@ -3,6 +3,7 @@ import { useVerticalT } from '../../hooks/useVerticalT'
 import Icon from '../ui/Icon'
 import Button from '../ui/Button'
 import MenuItemCard from './MenuItemCard'
+import SortableList from './SortableList'
 
 /**
  * A collapsible category section: header with name + item count and
@@ -16,6 +17,7 @@ export default function MenuCategory({
   onAddItem,
   onEditItem,
   onDeleteItem,
+  onReorderItems,
 }) {
   const { t } = useVerticalT()
   const [expanded, setExpanded] = useState(true)
@@ -80,7 +82,7 @@ export default function MenuCategory({
 
       {/* Items */}
       {expanded && (
-        <div className="space-y-2 p-4">
+        <div className="p-4">
           {count === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-200 py-8 text-center">
               <p className="text-sm text-slate-500">{t('menu.noItems')}</p>
@@ -95,14 +97,20 @@ export default function MenuCategory({
               </Button>
             </div>
           ) : (
-            category.items.map((item) => (
-              <MenuItemCard
-                key={item.id}
-                item={item}
-                onEdit={() => onEditItem(item)}
-                onDelete={() => onDeleteItem(item)}
-              />
-            ))
+            // Drag an item by its handle to move it within this category.
+            <SortableList
+              items={category.items}
+              onCommit={onReorderItems}
+              className="space-y-2"
+              renderItem={(item, handle) => (
+                <MenuItemCard
+                  item={item}
+                  handle={handle}
+                  onEdit={() => onEditItem(item)}
+                  onDelete={() => onDeleteItem(item)}
+                />
+              )}
+            />
           )}
         </div>
       )}

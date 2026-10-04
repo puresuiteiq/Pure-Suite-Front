@@ -94,6 +94,13 @@
     "downloadQr": "Download PNG"
   },
   "menu": {
+    "reorder": {
+      "categories": "Reorder categories",
+      "categoriesHint": "Drag a category by its handle to change the order customers see.",
+      "done": "Done",
+      "handle": "Drag to reorder",
+      "failed": "The new order couldn't be saved. It has been put back — try again."
+    },
     "coverFocus": {
       "title": "How the photo shows in your store",
       "center": "Center",

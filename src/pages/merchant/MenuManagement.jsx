@@ -5,6 +5,7 @@ import Button from '../../components/ui/Button'
 import Icon from '../../components/ui/Icon'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import MenuCategory from '../../components/menu/MenuCategory'
+import SortableList from '../../components/menu/SortableList'
 import CategoryFormModal from '../../components/menu/CategoryFormModal'
 import ItemFormModal from '../../components/menu/ItemFormModal'
 import { useMenu } from '../../hooks/useMenu'
@@ -31,6 +32,8 @@ export default function MenuManagement() {
     getItem,
     editItem,
     removeItem,
+    reorderCategories,
+    reorderItems,
   } = useMenu({ pageSize: MENU_PAGE_SIZE })
   const loadMoreRef = useRef(null)
 
@@ -41,6 +44,21 @@ export default function MenuManagement() {
   // { open, kind, category, item, loading }
   const [confirm, setConfirm] = useState({ open: false })
   const [itemLoadError, setItemLoadError] = useState(null)
+  // Categories are reordered in a compact list of their names: dragging a
+  // whole open category, items and all, is unwieldy on a phone.
+  const [arranging, setArranging] = useState(false)
+  const [reorderError, setReorderError] = useState(null)
+
+  // A reorder is applied at once and saved behind it; a refused save has put
+  // the old order back (useMenu) — say so here.
+  const saveOrder = async (save) => {
+    setReorderError(null)
+    try {
+      await save()
+    } catch (err) {
+      setReorderError(translateApiError(err, t, 'menu.reorder.failed'))
+    }
+  }
 
   const loadedItems = categories.reduce((sum, c) => sum + c.items.length, 0)
   const menuItemsTotal = totalItems ?? loadedItems
@@ -143,12 +161,25 @@ export default function MenuManagement() {
               })
         }
         actions={
-          <Button
-            icon="plus"
-            onClick={() => setCategoryModal({ open: true, category: null })}
-          >
-            {t('menu.addCategory')}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {categories.length > 1 && (
+              <Button
+                variant="secondary"
+                icon={arranging ? 'check' : 'grip'}
+                onClick={() => (setReorderError(null), setArranging((on) => !on))}
+              >
+                {arranging ? t('menu.reorder.done') : t('menu.reorder.categories')}
+              </Button>
+            )}
+            {!arranging && (
+              <Button
+                icon="plus"
+                onClick={() => setCategoryModal({ open: true, category: null })}
+              >
+                {t('menu.addCategory')}
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -161,6 +192,12 @@ export default function MenuManagement() {
       {error && (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-red-600 shadow-sm">
           {t('menu.loadFailed')}
+        </div>
+      )}
+
+      {reorderError && (
+        <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 shadow-sm">
+          {reorderError}
         </div>
       )}
 
@@ -189,7 +226,31 @@ export default function MenuManagement() {
         </div>
       )}
 
-      {!loading && !error && categories.length > 0 && (
+      {/* Arranging: the categories as a compact list of names to drag. */}
+      {!loading && !error && arranging && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="mb-3 flex items-center gap-2 text-sm text-slate-500">
+            <Icon name="grip" className="h-4 w-4 shrink-0" />
+            {t('menu.reorder.categoriesHint')}
+          </p>
+          <SortableList
+            items={categories}
+            onCommit={(ids) => saveOrder(() => reorderCategories(ids))}
+            className="space-y-2"
+            renderItem={(category, handle) => (
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                {handle}
+                <span className="min-w-0 flex-1 truncate font-semibold text-slate-900">{category.name}</span>
+                <span className="shrink-0 whitespace-nowrap rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">
+                  {t('menu.items', { count: category.items.length })}
+                </span>
+              </div>
+            )}
+          />
+        </div>
+      )}
+
+      {!loading && !error && !arranging && categories.length > 0 && (
         <div className="space-y-4">
           {categories.map((category, index) => (
             <div key={category.id}>
@@ -209,6 +270,7 @@ export default function MenuManagement() {
                   })
                 }
                 onEditItem={(item) => openItemEditor(category, item)}
+                onReorderItems={(ids) => saveOrder(() => reorderItems(category.id, ids))}
                 onDeleteItem={(item) =>
                   setConfirm({
                     open: true,

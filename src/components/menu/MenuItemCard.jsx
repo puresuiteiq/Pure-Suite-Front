@@ -10,7 +10,7 @@ import { focusPosition } from '../../utils/coverFocus'
  * variant as `price`. Rendering that alone hid every other size from the person
  * who set them, so sized products list their sizes instead.
  */
-export default function MenuItemCard({ item, onEdit, onDelete }) {
+export default function MenuItemCard({ item, onEdit, onDelete, handle = null }) {
   const { t } = useVerticalT()
   const variants = Array.isArray(item.variants) ? item.variants : []
 
@@ -18,7 +18,9 @@ export default function MenuItemCard({ item, onEdit, onDelete }) {
     // On phones the row was photo + two buttons + text squeezed into one line,
     // which left the name ~40px: even "Hummus" was cut off. Below sm the photo
     // is smaller, the buttons stack, and names get two lines.
-    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:gap-4">
+    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 sm:gap-4">
+      {/* Drag handle, when the list is reorderable (SortableList). */}
+      {handle}
       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 sm:h-16 sm:w-16">
         {item.image ? (
           <img

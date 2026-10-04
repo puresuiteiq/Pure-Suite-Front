@@ -51,6 +51,19 @@ export const menuService = {
     return apiClient.delete(`/merchant/menu/categories/${categoryId}`)
   },
 
+  /** Drag-and-drop order: every category id, in the order the merchant set. */
+  reorderCategories(ids) {
+    return apiClient.patch('/merchant/menu/categories/order', { ids })
+  },
+
+  /**
+   * One category's items in a new order. May be only the loaded page of them;
+   * the server keeps the rest where they were.
+   */
+  reorderItems(categoryId, ids) {
+    return apiClient.patch(`/merchant/menu/categories/${categoryId}/items/order`, { ids })
+  },
+
   createItem(categoryId, data) {
     return apiClient.post('/merchant/menu/items', { categoryId, ...data })
   },

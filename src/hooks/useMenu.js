@@ -139,6 +139,44 @@ export function useMenu({ pageSize = DEFAULT_PAGE_SIZE } = {}) {
 
   const getItem = useCallback((itemId) => menuService.getItem(itemId), [])
 
+  // Drag-and-drop order. Applied at once (the dragged row is already where the
+  // merchant dropped it), then saved; a refused save puts the old order back
+  // and rethrows so the page can say so.
+  const reorderCategories = useCallback(
+    async (nextIds) => {
+      const previous = categories
+      const byId = new Map(categories.map((category) => [category.id, category]))
+      setCategories(nextIds.map((id) => byId.get(id)).filter(Boolean))
+      try {
+        await menuService.reorderCategories(nextIds)
+      } catch (err) {
+        setCategories(previous)
+        throw err
+      }
+    },
+    [categories],
+  )
+
+  const reorderItems = useCallback(
+    async (categoryId, nextIds) => {
+      const previous = categories
+      setCategories((prev) =>
+        prev.map((category) => {
+          if (category.id !== categoryId) return category
+          const byId = new Map(category.items.map((item) => [item.id, item]))
+          return { ...category, items: nextIds.map((id) => byId.get(id)).filter(Boolean) }
+        }),
+      )
+      try {
+        await menuService.reorderItems(categoryId, nextIds)
+      } catch (err) {
+        setCategories(previous)
+        throw err
+      }
+    },
+    [categories],
+  )
+
   return {
     categories,
     loading,
@@ -154,5 +192,7 @@ export function useMenu({ pageSize = DEFAULT_PAGE_SIZE } = {}) {
     getItem,
     editItem,
     removeItem,
+    reorderCategories,
+    reorderItems,
   }
 }
